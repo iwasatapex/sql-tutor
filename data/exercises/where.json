@@ -1,0 +1,50 @@
+[
+  {
+    "exercise_id": "where-01",
+    "title": "High earners",
+    "description": "Return the name and salary of employees who earn more than 70000.",
+    "concept": "WHERE",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "expected_query": "SELECT name, salary FROM employees WHERE salary > 70000;",
+    "tables": [
+      "employees"
+    ]
+  },
+  {
+    "exercise_id": "where-02",
+    "title": "Customers from the UK",
+    "description": "Return the names of customers whose country is 'UK'.",
+    "concept": "WHERE",
+    "difficulty": "beginner",
+    "dataset": "shop",
+    "expected_query": "SELECT name FROM customers WHERE country = 'UK';",
+    "tables": [
+      "customers"
+    ]
+  },
+  {
+    "exercise_id": "where-03",
+    "title": "Recent hires in Sales",
+    "description": "Return the names of employees in department 2 who were hired in 2018 or later.",
+    "concept": "WHERE",
+    "difficulty": "intermediate",
+    "dataset": "company",
+    "expected_query": "SELECT name FROM employees WHERE hire_year >= 2018 AND department_id = 2;",
+    "tables": [
+      "employees"
+    ]
+  },
+  {
+    "exercise_id": "where-04",
+    "title": "Top-level mid earners",
+    "description": "Return the names of employees who have no manager and earn between 60000 and 100000 (inclusive).",
+    "concept": "WHERE",
+    "difficulty": "advanced",
+    "dataset": "company",
+    "expected_query": "SELECT name FROM employees WHERE manager_id IS NULL AND salary BETWEEN 60000 AND 100000;",
+    "tables": [
+      "employees"
+    ]
+  }
+]

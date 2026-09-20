@@ -1,5 +1,6 @@
 import sqlite3
 from dataclasses import dataclass
+from pathlib import Path
 from datetime import datetime, timezone
 
 from sql_tutor.learning.mastery import MasteryResult, MasteryTracker
@@ -16,7 +17,10 @@ class Attempt:
 
 class ProgressStore:
     def __init__(self, database_path: str = ":memory:") -> None:
-        self._connection = sqlite3.connect(database_path)
+        if database_path != ":memory:":
+            Path(database_path).parent.mkdir(parents=True, exist_ok=True)
+
+        self._connection = sqlite3.connect(str(database_path))
         self._connection.row_factory = sqlite3.Row
         self._create_tables()
 
@@ -83,6 +87,27 @@ class ProgressStore:
             ORDER BY id
             """,
             (exercise_id,),
+        ).fetchall()
+
+        return tuple(
+            Attempt(
+                exercise_id=row["exercise_id"],
+                student_query=row["student_query"],
+                is_correct=bool(row["is_correct"]),
+                hint_level=row["hint_level"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        )
+
+    def get_all_attempts(self) -> tuple[Attempt, ...]:
+        rows = self._connection.execute(
+            """
+            SELECT exercise_id, student_query, is_correct,
+                   hint_level, created_at
+            FROM attempts
+            ORDER BY id
+            """
         ).fetchall()
 
         return tuple(

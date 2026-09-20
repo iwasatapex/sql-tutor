@@ -8,6 +8,7 @@ class LLMRequest:
     system_prompt: str | None = None
     temperature: float = 0.2
     max_tokens: int = 1024
+    json_mode: bool = False
 
 
 @dataclass(frozen=True)

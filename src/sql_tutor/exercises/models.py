@@ -29,7 +29,7 @@ class Exercise:
     difficulty: ExerciseDifficulty
     schema: tuple[TableSchema, ...]
     expected_query: str
-    setup_statements: tuple[str, ...] = ()
+    setup_sql: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.exercise_id.strip():

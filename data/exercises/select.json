@@ -1,0 +1,50 @@
+[
+  {
+    "exercise_id": "select-01",
+    "title": "All employee names",
+    "description": "List the name of every employee.",
+    "concept": "SELECT",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "expected_query": "SELECT name FROM employees;",
+    "tables": [
+      "employees"
+    ]
+  },
+  {
+    "exercise_id": "select-02",
+    "title": "Name and salary",
+    "description": "Return the name and salary of every employee.",
+    "concept": "SELECT",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "expected_query": "SELECT name, salary FROM employees;",
+    "tables": [
+      "employees"
+    ]
+  },
+  {
+    "exercise_id": "select-03",
+    "title": "Distinct locations",
+    "description": "List each department location once, with no duplicates. Return a single column: location.",
+    "concept": "SELECT",
+    "difficulty": "intermediate",
+    "dataset": "company",
+    "expected_query": "SELECT DISTINCT location FROM departments;",
+    "tables": [
+      "departments"
+    ]
+  },
+  {
+    "exercise_id": "select-04",
+    "title": "Salary after a raise",
+    "description": "Return each employee's name and a column called raised_salary equal to their salary plus 5000.",
+    "concept": "SELECT",
+    "difficulty": "intermediate",
+    "dataset": "company",
+    "expected_query": "SELECT name, salary + 5000 AS raised_salary FROM employees;",
+    "tables": [
+      "employees"
+    ]
+  }
+]

@@ -1,4 +1,6 @@
 import json
+import logging
+import re
 
 from sql_tutor.exercises.models import (
     Exercise,
@@ -7,8 +9,33 @@ from sql_tutor.exercises.models import (
     TableSchema,
 )
 from sql_tutor.exercises.validator import validate_exercise
-from sql_tutor.llm.base import LLMProvider
+from sql_tutor.exercises.verifier import verify_exercise
+from sql_tutor.llm.base import LLMProvider, LLMProviderError
 from sql_tutor.llm.models import LLMRequest
+
+logger = logging.getLogger(__name__)
+
+_SYSTEM_PROMPT = (
+    "You write SQL exercises for a SQLite-based tutor. "
+    "Reply with a single JSON object and nothing else."
+)
+
+_FORMAT_SPEC = """\
+Use exactly this JSON shape:
+{
+  "exercise_id": "lowercase-id-with-hyphens",
+  "title": "short title",
+  "description": "the task for the learner; name any required output column aliases",
+  "concept": "<the concept>",
+  "difficulty": "<the difficulty>",
+  "schema": [{"name": "table", "columns": [{"name": "col", "data_type": "INTEGER"}]}],
+  "setup_sql": ["CREATE TABLE ...", "INSERT INTO ... VALUES (...)"],
+  "expected_query": "SELECT ...;"
+}
+Rules: SQLite dialect; setup_sql contains only CREATE TABLE and INSERT INTO, one statement per string;
+include 5 to 12 rows of realistic data; expected_query is one read-only SELECT that returns at least one row."""
+
+_FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
 
 
 class ExerciseGenerationError(ValueError):
@@ -16,38 +43,82 @@ class ExerciseGenerationError(ValueError):
 
 
 class ExerciseGenerator:
-    def __init__(self, provider: LLMProvider) -> None:
+    def __init__(
+        self,
+        provider: LLMProvider,
+        *,
+        max_attempts: int = 1,
+        verify: bool = False,
+    ) -> None:
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be at least 1")
+
         self.provider = provider
+        self.max_attempts = max_attempts
+        self.verify = verify
 
     def generate(
         self,
         concept: str,
         difficulty: ExerciseDifficulty,
     ) -> Exercise:
+        last_error: Exception | None = None
+        feedback = ""
+
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                return self._generate_once(concept, difficulty, feedback)
+            except (ExerciseGenerationError, LLMProviderError) as error:
+                last_error = error
+                feedback = (
+                    "\nYour previous answer was rejected: "
+                    f"{error}\nFix that and reply with JSON only."
+                )
+                logger.warning(
+                    "Exercise generation attempt %d/%d failed: %s",
+                    attempt,
+                    self.max_attempts,
+                    error,
+                )
+
+        assert last_error is not None
+
+        if isinstance(last_error, ExerciseGenerationError):
+            raise last_error
+
+        raise ExerciseGenerationError(str(last_error)) from last_error
+
+    def _generate_once(
+        self,
+        concept: str,
+        difficulty: ExerciseDifficulty,
+        feedback: str,
+    ) -> Exercise:
         request = LLMRequest(
-            system_prompt=(
-                "Generate one SQL exercise as valid JSON. "
-                "Return only JSON without Markdown."
-            ),
+            system_prompt=_SYSTEM_PROMPT,
             prompt=(
                 f"Generate a {difficulty.value} SQL exercise "
-                f"about {concept}. "
-                "Include exercise_id, title, description, "
-                "concept, difficulty, schema, and expected_query."
+                f"about {concept}.\n{_FORMAT_SPEC}{feedback}"
             ),
+            json_mode=True,
+            max_tokens=2048,
         )
 
         response = self.provider.generate(request)
 
         try:
-            payload = json.loads(response.content)
+            payload = json.loads(self._strip_fences(response.content))
             exercise = self._parse_exercise(payload)
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
             raise ExerciseGenerationError(
                 f"Invalid generated exercise: {error}"
             ) from error
 
-        validation = validate_exercise(exercise)
+        validation = (
+            verify_exercise(exercise)
+            if self.verify
+            else validate_exercise(exercise)
+        )
 
         if not validation.is_valid:
             raise ExerciseGenerationError(
@@ -56,6 +127,12 @@ class ExerciseGenerator:
             )
 
         return exercise
+
+    @staticmethod
+    def _strip_fences(content: str) -> str:
+        text = content.strip()
+        match = _FENCE.match(text)
+        return match.group(1) if match else text
 
     @staticmethod
     def _parse_exercise(payload: dict) -> Exercise:
@@ -73,6 +150,13 @@ class ExerciseGenerator:
             for table in payload["schema"]
         )
 
+        setup_sql = payload.get("setup_sql", ())
+
+        if not isinstance(setup_sql, (list, tuple)) or not all(
+            isinstance(s, str) for s in setup_sql
+        ):
+            raise ValueError("setup_sql must be a list of strings")
+
         return Exercise(
             exercise_id=payload["exercise_id"],
             title=payload["title"],
@@ -81,5 +165,5 @@ class ExerciseGenerator:
             difficulty=ExerciseDifficulty(payload["difficulty"]),
             schema=schema,
             expected_query=payload["expected_query"],
-            setup_statements=tuple(payload.get("setup_statements", ())),
+            setup_sql=tuple(setup_sql),
         )

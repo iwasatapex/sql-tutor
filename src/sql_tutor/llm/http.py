@@ -1,47 +1,46 @@
 import json
-from urllib.request import Request, urlopen
+import urllib.error
+import urllib.request
+from typing import Any
 
-from sql_tutor.llm.base import LLMProvider
-from sql_tutor.llm.models import LLMRequest, LLMResponse
+from sql_tutor.llm.base import LLMProviderError
 
 
-class OpenAICompatibleProvider(LLMProvider):
-    """Minimal provider for OpenAI-compatible chat completion endpoints."""
+def post_json(
+    url: str,
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: float = 120.0,
+) -> dict[str, Any]:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", **(headers or {})},
+        method="POST",
+    )
 
-    def __init__(
-        self,
-        base_url: str,
-        model: str,
-        api_key: str | None = None,
-        timeout: float = 60.0,
-    ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.model = model
-        self.api_key = api_key
-        self.timeout = timeout
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body = response.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")[:300]
+        raise LLMProviderError(
+            f"HTTP {error.code} from {url}: {detail}"
+        ) from error
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        raise LLMProviderError(
+            f"Could not reach {url}: {error}"
+        ) from error
 
-    def generate(self, request: LLMRequest) -> LLMResponse:
-        messages = []
-        if request.system_prompt:
-            messages.append({"role": "system", "content": request.system_prompt})
-        messages.append({"role": "user", "content": request.prompt})
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": request.temperature,
-            "max_tokens": request.max_tokens,
-        }
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        http_request = Request(
-            f"{self.base_url}/chat/completions",
-            data=json.dumps(payload).encode(),
-            headers=headers,
-            method="POST",
-        )
-        with urlopen(http_request, timeout=self.timeout) as response:
-            body = json.loads(response.read().decode())
-        content = body["choices"][0]["message"]["content"]
-        usage = body.get("usage")
-        return LLMResponse(content=content, model=self.model, usage=usage)
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError as error:
+        raise LLMProviderError(
+            f"Non-JSON response from {url}: {body[:200]}"
+        ) from error
+
+    if not isinstance(parsed, dict):
+        raise LLMProviderError(f"Unexpected response shape from {url}")
+
+    return parsed
