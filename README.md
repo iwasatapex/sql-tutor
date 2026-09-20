@@ -1,41 +1,75 @@
 # SQL Tutor
 
-A local-first, model-agnostic SQL learning tutor.
+A local-first, model-agnostic adaptive SQL tutor. Standard library only.
 
-## Features
-
-- Read-only SQLite execution and SQL safety checks
-- Exercise validation and LLM-generated exercise support
-- Curriculum, difficulty adjustment, and mastery tracking
-- Persistent attempt history
-- Adaptive exercise selection
-- Stateful learning sessions
-- Interactive CLI
-- OpenAI-compatible HTTP provider without third-party runtime dependencies
-
-## Setup
+## Quick start
 
 ```bash
-conda activate projects
-python -m pip install -e ".[dev]"
-python -m pytest -q
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+
+sql-tutor practice     # adaptive session (default command)
+sql-tutor progress     # per-topic progress
+sql-tutor list --concept join
+pytest
 ```
 
-## Run the CLI
+In a session, type SQL ending with `;` (multi-line is fine). Commands:
+`:hint`, `:schema`, `:skip`, `:help`, `:quit`. After two failed attempts a
+hint is shown automatically. Progress is stored in
+`~/.local/share/sql-tutor/progress.db` (override with `--db` or `SQL_TUTOR_DB`).
+
+## How exercises are chosen
+
+`ExerciseSelector` walks the curriculum in order. A topic is complete when
+every exercise in it is solved, or when the learner has solved at least two
+distinct exercises and is proficient (>= 75%) over their last five attempts on
+that topic. Inside the current topic, the target difficulty starts at the
+topic's level and is moved up (3 correct in a row) or down (2 wrong in a
+row) by `DifficultyAdjuster`; the nearest unsolved exercise to that target is
+served.
+
+## Content
+
+- `data/datasets/*.json`: declarative tables and rows (`company`, `shop`).
+- `data/exercises/*.json`: 24 exercises across all six curriculum topics.
+  An exercise references a dataset by name, or carries inline `schema` and
+  `setup_sql` (the format LLM-generated exercises are saved in).
+- `tests/test_repository.py` runs every reference query against its data, so
+  a broken exercise fails CI.
+
+Row order is only compared when the reference query contains `ORDER BY`.
+Result columns must match the reference names, so descriptions state any
+required aliases.
+
+## Real LLMs
+
+Configured by environment variables:
+
+| Variable | Meaning |
+| --- | --- |
+| `SQL_TUTOR_LLM_PROVIDER` | `mock` (default), `ollama`, `openai-compatible` |
+| `SQL_TUTOR_LLM_MODEL` | model name (required for real providers) |
+| `SQL_TUTOR_LLM_BASE_URL` | default `http://localhost:11434` for Ollama; required for openai-compatible, include `/v1` |
+| `SQL_TUTOR_LLM_API_KEY` | bearer token, if the server needs one |
+| `SQL_TUTOR_LLM_TIMEOUT` | seconds, default 120 |
 
 ```bash
-python -m sql_tutor.cli --exercises data/exercises/basic.json
+SQL_TUTOR_LLM_PROVIDER=ollama SQL_TUTOR_LLM_MODEL=<your-model> \
+  sql-tutor generate --concept "GROUP BY" --difficulty intermediate --save
 ```
 
-The bundled catalog is metadata only. Supply your own setup statements or extend the session bootstrap before using exercises against a populated schema.
+Generated exercises are parsed, validated, then **verified**: the setup SQL is
+built in a scratch database and the expected query must run and return rows.
+Failures are fed back to the model and retried (`--attempts`, default 3).
+`--save` writes to `data/exercises/generated/`, which the loader picks up.
 
-## Provider example
+## Safety
 
-```python
-from sql_tutor.llm.http import OpenAICompatibleProvider
+Learner SQL must be a single `SELECT`/`WITH` statement, and additionally runs
+with SQLite `query_only`, a 2 second timeout, and a 10,000 row cap. Generated
+`setup_sql` may only be `CREATE TABLE` / `INSERT INTO`.
 
-provider = OpenAICompatibleProvider(
-    base_url="http://localhost:1234/v1",
-    model="your-model",
-)
-```
+## Layout
+
+See `docs/architecture.md`.

@@ -1,61 +1,166 @@
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 
 from sql_tutor.exercises.models import Exercise, ExerciseDifficulty
-from sql_tutor.learning.curriculum import Curriculum
+from sql_tutor.exercises.repository import ExerciseRepository
+from sql_tutor.learning.curriculum import Curriculum, CurriculumTopic
 from sql_tutor.learning.difficulty import DifficultyAdjuster
-from sql_tutor.storage.progress import ProgressStore
+from sql_tutor.learning.mastery import (
+    MasteryLevel,
+    MasteryResult,
+    MasteryTracker,
+)
+from sql_tutor.storage.progress import Attempt
+
+_DIFFICULTY_ORDER = (
+    ExerciseDifficulty.BEGINNER,
+    ExerciseDifficulty.INTERMEDIATE,
+    ExerciseDifficulty.ADVANCED,
+)
 
 
 @dataclass(frozen=True)
-class ExerciseSelection:
-    exercise: Exercise
-    reason: str
+class TopicProgress:
+    topic: CurriculumTopic
+    attempts: int
+    solved: int
+    total_exercises: int
+    mastery: MasteryResult
+    is_complete: bool
 
 
 class ExerciseSelector:
+    """Choose the next exercise from curriculum, mastery and difficulty.
+
+    A topic is complete when every exercise in it is solved, or when the
+    learner has solved ``min_solved`` distinct exercises and is at least
+    proficient over their most recent ``window`` attempts on the topic.
+    Within the current topic the target difficulty starts at the topic's
+    own level and is moved by ``DifficultyAdjuster`` using recent results.
+    """
+
     def __init__(
         self,
-        curriculum: Curriculum | None = None,
+        curriculum: Curriculum,
+        repository: ExerciseRepository,
+        *,
+        mastery_tracker: MasteryTracker | None = None,
         difficulty_adjuster: DifficultyAdjuster | None = None,
+        window: int = 5,
+        min_solved: int = 2,
     ) -> None:
-        self.curriculum = curriculum or Curriculum.default()
+        self.curriculum = curriculum
+        self.repository = repository
+        self.mastery_tracker = mastery_tracker or MasteryTracker()
         self.difficulty_adjuster = difficulty_adjuster or DifficultyAdjuster()
+        self.window = window
+        self.min_solved = min_solved
 
-    def select(
+    def topic_progress(
         self,
-        exercises: tuple[Exercise, ...],
-        progress_store: ProgressStore,
-    ) -> ExerciseSelection:
-        if not exercises:
-            raise ValueError("At least one exercise is required")
+        attempts: Sequence[Attempt],
+    ) -> tuple[TopicProgress, ...]:
+        results_by_concept: dict[str, list[bool]] = {}
+        solved_by_concept: dict[str, set[str]] = {}
 
-        difficulty_order = {
-            ExerciseDifficulty.BEGINNER: 0,
-            ExerciseDifficulty.INTERMEDIATE: 1,
-            ExerciseDifficulty.ADVANCED: 2,
-        }
-        ranked: list[tuple[int, int, int, Exercise]] = []
-        for exercise in exercises:
-            attempts = progress_store.get_attempts(exercise.exercise_id)
-            results = tuple(attempt.is_correct for attempt in attempts)
-            target = self.difficulty_adjuster.adjust(exercise.difficulty, results)
-            mastery = progress_store.get_mastery(exercise.exercise_id)
-            topic = self.curriculum.get_topic(exercise.concept)
-            topic_order = topic.order if topic else 999
-            # Unattempted and low-accuracy exercises come first; ties favor
-            # curriculum order and the difficulty recommended by recent results.
-            familiarity = len(attempts)
-            ranked.append(
-                (
-                    round(mastery.accuracy * 100),
-                    familiarity,
-                    topic_order + abs(difficulty_order[target] - difficulty_order[exercise.difficulty]),
-                    exercise,
+        for attempt in attempts:
+            exercise = self.repository.get(attempt.exercise_id)
+
+            if exercise is None:
+                continue
+
+            concept = exercise.concept.upper()
+            results_by_concept.setdefault(concept, []).append(
+                attempt.is_correct
+            )
+
+            if attempt.is_correct:
+                solved_by_concept.setdefault(concept, set()).add(
+                    exercise.exercise_id
+                )
+
+        progress: list[TopicProgress] = []
+
+        for topic in self.curriculum.topics:
+            key = topic.title.upper()
+            results = results_by_concept.get(key, [])
+            solved = len(solved_by_concept.get(key, set()))
+            total = len(self.repository.for_concept(topic.title))
+            mastery = self.mastery_tracker.calculate(
+                tuple(results[-self.window:])
+            )
+
+            all_solved = total > 0 and solved >= total
+            proficient = mastery.level in (
+                MasteryLevel.PROFICIENT,
+                MasteryLevel.MASTERED,
+            )
+
+            progress.append(
+                TopicProgress(
+                    topic=topic,
+                    attempts=len(results),
+                    solved=solved,
+                    total_exercises=total,
+                    mastery=mastery,
+                    is_complete=all_solved
+                    or (solved >= self.min_solved and proficient),
                 )
             )
-        ranked.sort(key=lambda item: (item[0], item[1], item[2], item[3].exercise_id))
-        selected = ranked[0][3]
-        return ExerciseSelection(
-            exercise=selected,
-            reason=f"Selected {selected.exercise_id} for targeted practice.",
+
+        return tuple(progress)
+
+    def select_next(
+        self,
+        attempts: Sequence[Attempt],
+        *,
+        exclude_ids: Collection[str] = (),
+    ) -> Exercise | None:
+        solved_ids = {a.exercise_id for a in attempts if a.is_correct}
+        unavailable = solved_ids | set(exclude_ids)
+
+        for progress in self.topic_progress(attempts):
+            if progress.is_complete:
+                continue
+
+            candidates = [
+                e for e in self.repository.for_concept(progress.topic.title)
+                if e.exercise_id not in unavailable
+            ]
+
+            if not candidates:
+                continue
+
+            target = self._target_difficulty(progress.topic, attempts)
+
+            return min(
+                candidates,
+                key=lambda e: (
+                    abs(
+                        _DIFFICULTY_ORDER.index(e.difficulty)
+                        - _DIFFICULTY_ORDER.index(target)
+                    ),
+                    _DIFFICULTY_ORDER.index(e.difficulty),
+                    e.exercise_id,
+                ),
+            )
+
+        return None
+
+    def _target_difficulty(
+        self,
+        topic: CurriculumTopic,
+        attempts: Sequence[Attempt],
+    ) -> ExerciseDifficulty:
+        recent: list[bool] = []
+
+        for attempt in attempts:
+            exercise = self.repository.get(attempt.exercise_id)
+
+            if exercise and exercise.concept.upper() == topic.title.upper():
+                recent.append(attempt.is_correct)
+
+        return self.difficulty_adjuster.adjust(
+            topic.difficulty,
+            tuple(recent[-self.window:]),
         )

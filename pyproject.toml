@@ -9,6 +9,9 @@ description = "A local-first, model-agnostic SQL learning tutor"
 requires-python = ">=3.12"
 dependencies = []
 
+[project.scripts]
+sql-tutor = "sql_tutor.cli:main"
+
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
@@ -18,6 +21,3 @@ pythonpath = ["src"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[project.scripts]
-sql-tutor = "sql_tutor.cli:main"

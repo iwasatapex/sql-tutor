@@ -24,6 +24,16 @@ class HintService:
             "Review the columns used in ORDER BY.",
             "Verify the sorting direction and column order.",
         ),
+        "GROUP BY": (
+            "Decide which column defines each group.",
+            "Check that every non-aggregated column in SELECT appears in GROUP BY.",
+            "Use HAVING, not WHERE, to filter on an aggregate such as COUNT(*).",
+        ),
+        "SUBQUERY": (
+            "Work out the inner query on its own first.",
+            "Check whether the inner query returns one value or a list of values.",
+            "Use = or > with a single value, and IN with a list.",
+        ),
         "JOIN": (
             "Identify the relationship between the tables.",
             "Review the columns used in your JOIN condition.",

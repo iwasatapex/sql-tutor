@@ -13,6 +13,10 @@ class ExerciseValidationResult:
 
 _IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _EXERCISE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+_SETUP_STATEMENT_PATTERN = re.compile(
+    r"^\s*(CREATE\s+TABLE|INSERT\s+INTO)\b",
+    re.IGNORECASE,
+)
 
 
 def validate_exercise(exercise: Exercise) -> ExerciseValidationResult:
@@ -49,6 +53,13 @@ def validate_exercise(exercise: Exercise) -> ExerciseValidationResult:
 
             if not column.data_type.strip():
                 errors.append(f"Column type cannot be empty: {column.name}")
+
+    for statement in exercise.setup_sql:
+        if not _SETUP_STATEMENT_PATTERN.match(statement):
+            errors.append(
+                "Setup statements must be CREATE TABLE or INSERT INTO: "
+                + statement.strip()[:60]
+            )
 
     try:
         validate_read_only_query(exercise.expected_query)

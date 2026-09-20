@@ -1,0 +1,50 @@
+[
+  {
+    "exercise_id": "orderby-01",
+    "title": "Alphabetical names",
+    "description": "Return employee names in alphabetical order.",
+    "concept": "ORDER BY",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "expected_query": "SELECT name FROM employees ORDER BY name;",
+    "tables": [
+      "employees"
+    ]
+  },
+  {
+    "exercise_id": "orderby-02",
+    "title": "Salary ranking",
+    "description": "Return each employee's name and salary, highest salary first.",
+    "concept": "ORDER BY",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "expected_query": "SELECT name, salary FROM employees ORDER BY salary DESC;",
+    "tables": [
+      "employees"
+    ]
+  },
+  {
+    "exercise_id": "orderby-03",
+    "title": "Products by category then price",
+    "description": "Return name, category and price of all products, sorted by category A to Z, then by price from highest to lowest.",
+    "concept": "ORDER BY",
+    "difficulty": "intermediate",
+    "dataset": "shop",
+    "expected_query": "SELECT name, category, price FROM products ORDER BY category ASC, price DESC;",
+    "tables": [
+      "products"
+    ]
+  },
+  {
+    "exercise_id": "orderby-04",
+    "title": "Top three earners",
+    "description": "Return the name and salary of the three highest-paid employees, highest first.",
+    "concept": "ORDER BY",
+    "difficulty": "intermediate",
+    "dataset": "company",
+    "expected_query": "SELECT name, salary FROM employees ORDER BY salary DESC LIMIT 3;",
+    "tables": [
+      "employees"
+    ]
+  }
+]

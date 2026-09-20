@@ -1,0 +1,50 @@
+[
+  {
+    "exercise_id": "groupby-01",
+    "title": "Headcount per department",
+    "description": "Return each department_id and the number of employees in it as employee_count.",
+    "concept": "GROUP BY",
+    "difficulty": "intermediate",
+    "dataset": "company",
+    "expected_query": "SELECT department_id, COUNT(*) AS employee_count FROM employees GROUP BY department_id;",
+    "tables": [
+      "employees"
+    ]
+  },
+  {
+    "exercise_id": "groupby-02",
+    "title": "Average salary per department",
+    "description": "Return each department_id and the average salary of its employees as avg_salary.",
+    "concept": "GROUP BY",
+    "difficulty": "intermediate",
+    "dataset": "company",
+    "expected_query": "SELECT department_id, AVG(salary) AS avg_salary FROM employees GROUP BY department_id;",
+    "tables": [
+      "employees"
+    ]
+  },
+  {
+    "exercise_id": "groupby-03",
+    "title": "Units sold per product",
+    "description": "Using order_items, return each product_id and the total quantity ordered as total_quantity.",
+    "concept": "GROUP BY",
+    "difficulty": "intermediate",
+    "dataset": "shop",
+    "expected_query": "SELECT product_id, SUM(quantity) AS total_quantity FROM order_items GROUP BY product_id;",
+    "tables": [
+      "order_items"
+    ]
+  },
+  {
+    "exercise_id": "groupby-04",
+    "title": "Large departments",
+    "description": "Return the department_id and employee_count (as in COUNT(*)) for departments with more than 3 employees.",
+    "concept": "GROUP BY",
+    "difficulty": "advanced",
+    "dataset": "company",
+    "expected_query": "SELECT department_id, COUNT(*) AS employee_count FROM employees GROUP BY department_id HAVING COUNT(*) > 3;",
+    "tables": [
+      "employees"
+    ]
+  }
+]

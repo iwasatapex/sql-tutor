@@ -1,0 +1,56 @@
+[
+  {
+    "exercise_id": "join-01",
+    "title": "Employees and their departments",
+    "description": "Return each employee's name as employee_name and their department's name as department_name.",
+    "concept": "JOIN",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "expected_query": "SELECT e.name AS employee_name, d.name AS department_name FROM employees e JOIN departments d ON e.department_id = d.id;",
+    "tables": [
+      "employees",
+      "departments"
+    ]
+  },
+  {
+    "exercise_id": "join-02",
+    "title": "Orders with customer names",
+    "description": "Return each order's id as order_id and the customer's name as customer_name.",
+    "concept": "JOIN",
+    "difficulty": "intermediate",
+    "dataset": "shop",
+    "expected_query": "SELECT o.id AS order_id, c.name AS customer_name FROM orders o JOIN customers c ON o.customer_id = c.id;",
+    "tables": [
+      "orders",
+      "customers"
+    ]
+  },
+  {
+    "exercise_id": "join-03",
+    "title": "Departments including empty ones",
+    "description": "Return every department's name as department_name and its number of employees as employee_count. Departments with no employees must appear with a count of 0.",
+    "concept": "JOIN",
+    "difficulty": "intermediate",
+    "dataset": "company",
+    "expected_query": "SELECT d.name AS department_name, COUNT(e.id) AS employee_count FROM departments d LEFT JOIN employees e ON e.department_id = d.id GROUP BY d.id, d.name;",
+    "tables": [
+      "departments",
+      "employees"
+    ]
+  },
+  {
+    "exercise_id": "join-04",
+    "title": "Customer spending",
+    "description": "For orders that are not cancelled, return each customer's name as customer_name and the total value of their items (quantity times product price) as total_spent. Sort by total_spent, highest first.",
+    "concept": "JOIN",
+    "difficulty": "advanced",
+    "dataset": "shop",
+    "expected_query": "SELECT c.name AS customer_name, SUM(oi.quantity * p.price) AS total_spent FROM customers c JOIN orders o ON o.customer_id = c.id JOIN order_items oi ON oi.order_id = o.id JOIN products p ON p.id = oi.product_id WHERE o.status <> 'cancelled' GROUP BY c.id, c.name ORDER BY total_spent DESC;",
+    "tables": [
+      "customers",
+      "orders",
+      "order_items",
+      "products"
+    ]
+  }
+]

@@ -1,0 +1,156 @@
+{
+  "name": "company",
+  "description": "Departments and employees of a small company.",
+  "tables": [
+    {
+      "name": "departments",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "INTEGER"
+        },
+        {
+          "name": "name",
+          "data_type": "TEXT"
+        },
+        {
+          "name": "location",
+          "data_type": "TEXT"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "Engineering",
+          "Berlin"
+        ],
+        [
+          2,
+          "Sales",
+          "London"
+        ],
+        [
+          3,
+          "Marketing",
+          "London"
+        ],
+        [
+          4,
+          "Legal",
+          "Paris"
+        ]
+      ]
+    },
+    {
+      "name": "employees",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "INTEGER"
+        },
+        {
+          "name": "name",
+          "data_type": "TEXT"
+        },
+        {
+          "name": "department_id",
+          "data_type": "INTEGER"
+        },
+        {
+          "name": "salary",
+          "data_type": "INTEGER"
+        },
+        {
+          "name": "hire_year",
+          "data_type": "INTEGER"
+        },
+        {
+          "name": "manager_id",
+          "data_type": "INTEGER"
+        }
+      ],
+      "rows": [
+        [
+          1,
+          "Alice",
+          1,
+          95000,
+          2015,
+          null
+        ],
+        [
+          2,
+          "Bob",
+          1,
+          85000,
+          2017,
+          1
+        ],
+        [
+          3,
+          "Carla",
+          1,
+          78000,
+          2019,
+          1
+        ],
+        [
+          4,
+          "Dmitri",
+          2,
+          62000,
+          2016,
+          null
+        ],
+        [
+          5,
+          "Eva",
+          2,
+          58000,
+          2020,
+          4
+        ],
+        [
+          6,
+          "Farid",
+          2,
+          71000,
+          2018,
+          4
+        ],
+        [
+          7,
+          "Grace",
+          3,
+          66000,
+          2021,
+          null
+        ],
+        [
+          8,
+          "Hiro",
+          3,
+          54000,
+          2022,
+          7
+        ],
+        [
+          9,
+          "Ines",
+          1,
+          102000,
+          2012,
+          null
+        ],
+        [
+          10,
+          "Jamal",
+          2,
+          49000,
+          2023,
+          4
+        ]
+      ]
+    }
+  ]
+}
