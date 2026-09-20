@@ -1,5 +1,7 @@
 from sql_tutor.exercises.models import Exercise, ExerciseDifficulty, TableColumn, TableSchema
 from sql_tutor.sql.engine import SQLEngine
+from sql_tutor.storage.progress import ProgressStore
+from sql_tutor.learning.mastery import MasteryLevel
 from sql_tutor.tutor.orchestrator import TutorOrchestrator
 
 
@@ -96,3 +98,44 @@ def test_invalid_sql_returns_feedback() -> None:
     assert feedback.is_correct is False
     assert feedback.error is not None
     engine.close()
+
+
+def test_submit_query_records_attempts_and_updates_mastery() -> None:
+    engine = make_engine()
+    store = ProgressStore()
+    tutor = TutorOrchestrator(progress_store=store)
+    exercise = make_exercise()
+
+    tutor.submit_query(
+        exercise=exercise,
+        engine=engine,
+        student_query="SELECT name FROM users WHERE active = 0;",
+    )
+    tutor.submit_query(
+        exercise=exercise,
+        engine=engine,
+        student_query="SELECT name FROM users WHERE active = 1;",
+    )
+
+    attempts = store.get_attempts(exercise.exercise_id)
+    assert len(attempts) == 2
+    assert attempts[0].is_correct is False
+    assert attempts[1].is_correct is True
+
+    mastery = tutor.get_mastery(exercise.exercise_id)
+    assert mastery.level == MasteryLevel.DEVELOPING
+    assert mastery.accuracy == 0.5
+
+    engine.close()
+    store.close()
+
+
+def test_get_mastery_requires_progress_store() -> None:
+    tutor = TutorOrchestrator()
+
+    try:
+        tutor.get_mastery("select-active-users")
+    except RuntimeError as error:
+        assert str(error) == "Progress store is required to retrieve mastery."
+    else:
+        raise AssertionError("Expected RuntimeError")
