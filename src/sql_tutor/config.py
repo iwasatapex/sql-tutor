@@ -15,6 +15,13 @@ def _default_database_path() -> Path:
     return root / "sql-tutor" / "progress.db"
 
 
+OLLAMA_MODELS: tuple[tuple[str, str], ...] = (
+    ("Granite", "granite4.1:3b-q6_K"),
+    ("Gemma", "batiai/gemma4-e4b:q4"),
+    ("Ornith", "ornith-1.5-9b-iq4-xs:latest"),
+)
+
+
 @dataclass(frozen=True)
 class Settings:
     data_dir: Path

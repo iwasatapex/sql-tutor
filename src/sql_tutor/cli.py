@@ -6,7 +6,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TextIO
 
-from sql_tutor.config import Settings
+from sql_tutor.config import OLLAMA_MODELS, Settings
 from sql_tutor.exercises.generator import (
     ExerciseGenerationError,
     ExerciseGenerator,
@@ -30,6 +30,30 @@ HELP_TEXT = (
     "Type your SQL and finish with ';' (or a blank line).\n"
     "Commands:  :hint  :schema  :skip  :help  :quit"
 )
+
+
+def choose_ollama_model(input_fn: InputFn = input) -> str:
+    print("\nChoose an Ollama model:")
+
+    for index, (label, model) in enumerate(OLLAMA_MODELS, start=1):
+        print(f"  {index}. {label} ({model})")
+
+    while True:
+        try:
+            choice = input_fn("Model [1-3]: ").strip()
+        except EOFError as error:
+            raise LLMProviderError(
+                "Model selection cancelled."
+            ) from error
+
+        if choice.isdigit():
+            index = int(choice) - 1
+            if 0 <= index < len(OLLAMA_MODELS):
+                label, model = OLLAMA_MODELS[index]
+                print(f"Using {label}: {model}")
+                return model
+
+        print("Invalid selection. Choose 1, 2, or 3.")
 
 
 def format_table(
@@ -238,6 +262,15 @@ def main(
     )
 
     settings = Settings.from_env()
+
+    if args.command == "generate" and settings.llm_provider == "ollama":
+        selected_model = settings.llm_model or choose_ollama_model(input_fn)
+        settings = Settings(
+            **{
+                **settings.__dict__,
+                "llm_model": selected_model,
+            }
+        )
 
     if args.db:
         settings = Settings(**{**settings.__dict__, "database_path": args.db})
