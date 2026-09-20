@@ -22,6 +22,7 @@ from sql_tutor.learning.selector import ExerciseSelector
 from sql_tutor.llm.base import LLMProviderError
 from sql_tutor.llm.factory import create_provider
 from sql_tutor.storage.progress import ProgressStore
+from sql_tutor.tutor.orchestrator import TutorOrchestrator
 from sql_tutor.tutor.session import ExerciseSetupError, LearningSession
 
 InputFn = Callable[[str], str]
@@ -263,7 +264,7 @@ def main(
 
     settings = Settings.from_env()
 
-    if args.command == "generate" and settings.llm_provider == "ollama":
+    if settings.llm_provider == "ollama" and not settings.llm_model:
         selected_model = settings.llm_model or choose_ollama_model(input_fn)
         settings = Settings(
             **{
@@ -326,10 +327,23 @@ def main(
         return 0
 
     store = ProgressStore(str(settings.database_path))
+    llm_provider = None
+    if settings.llm_provider != "mock":
+        try:
+            llm_provider = create_provider(settings)
+        except LLMProviderError as error:
+            print(f"LLM setup failed: {error}", file=sys.stderr)
+            store.close()
+            return 1
+
     session = LearningSession(
         repository=repository,
         selector=ExerciseSelector(Curriculum.default(), repository),
         progress_store=store,
+        orchestrator=TutorOrchestrator(
+            progress_store=store,
+            llm_provider=llm_provider,
+        ),
     )
 
     try:

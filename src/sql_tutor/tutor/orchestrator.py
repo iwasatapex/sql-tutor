@@ -8,6 +8,8 @@ from sql_tutor.sql.evaluator import ExerciseEvaluator
 from sql_tutor.sql.safety import UnsafeQueryError
 from sql_tutor.storage.progress import ProgressStore
 from sql_tutor.tutor.hints import Hint, HintService
+from sql_tutor.tutor.llm_hints import LLMHintService
+from sql_tutor.llm.base import LLMProvider
 
 
 @dataclass(frozen=True)
@@ -23,9 +25,15 @@ class TutorOrchestrator:
     def __init__(
         self,
         progress_store: ProgressStore | None = None,
+        llm_provider: LLMProvider | None = None,
     ) -> None:
         self.evaluator = ExerciseEvaluator()
         self.hint_service = HintService()
+        self.llm_hint_service = (
+            LLMHintService(llm_provider, self.hint_service)
+            if llm_provider is not None
+            else None
+        )
         self.progress_store = progress_store
 
     def _record_attempt(
@@ -47,6 +55,19 @@ class TutorOrchestrator:
         if self.progress_store is None:
             raise RuntimeError("Progress store is required to retrieve mastery.")
         return self.progress_store.get_mastery(exercise_id)
+
+
+    def _get_hint(
+        self,
+        exercise: Exercise,
+        level: int,
+        student_query: str | None = None,
+    ) -> Hint:
+        if self.llm_hint_service is not None:
+            return self.llm_hint_service.get_hint(
+                exercise, level, student_query
+            )
+        return self.hint_service.get_hint(exercise.concept, level)
 
     def submit_query(
         self,
@@ -92,9 +113,8 @@ class TutorOrchestrator:
             hint = None
 
             if hint_level is not None:
-                hint = self.hint_service.get_hint(
-                    concept=exercise.concept,
-                    level=hint_level,
+                hint = self._get_hint(
+                    exercise, hint_level, student_query
                 )
 
         self._record_attempt(

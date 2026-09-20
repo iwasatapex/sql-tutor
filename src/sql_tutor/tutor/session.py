@@ -232,9 +232,10 @@ class LearningSession:
         ):
             feedback = replace(
                 feedback,
-                hint=self.orchestrator.hint_service.get_hint(
-                    exercise.concept,
+                hint=self.orchestrator._get_hint(
+                    exercise,
                     min(self.failed_attempts - 1, _MAX_HINT_LEVEL),
+                    student_query,
                 ),
             )
 
@@ -250,10 +251,7 @@ class LearningSession:
         exercise, _ = self._require_active()
         self.hints_used = min(self.hints_used + 1, _MAX_HINT_LEVEL)
 
-        return self.orchestrator.hint_service.get_hint(
-            exercise.concept,
-            self.hints_used,
-        )
+        return self.orchestrator._get_hint(exercise, self.hints_used)
 
     def preview(self, student_query: str) -> QueryResult | None:
         """Run a query for display only; returns None if it cannot run."""
