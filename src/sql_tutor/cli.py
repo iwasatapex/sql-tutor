@@ -230,6 +230,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("practice", help="start an adaptive practice session")
     sub.add_parser("progress", help="show progress per topic")
+    web_cmd = sub.add_parser("web", help="start the browser UI")
+    web_cmd.add_argument("--host", default="127.0.0.1")
+    web_cmd.add_argument("--port", type=int, default=8765)
+    web_cmd.add_argument("--open", action="store_true", dest="open_browser")
 
     list_cmd = sub.add_parser("list", help="list available exercises")
     list_cmd.add_argument("--concept")
@@ -286,6 +290,16 @@ def main(
         return 2
 
     command = args.command or "practice"
+
+    if command == "web":
+        from sql_tutor.web import serve
+
+        try:
+            serve(settings, host=args.host, port=args.port, open_browser=args.open_browser)
+        except (LLMProviderError, ExerciseLoadError, OSError) as error:
+            print(f"Web UI failed: {error}", file=sys.stderr)
+            return 1
+        return 0
 
     if command == "list":
         exercises = (
