@@ -16,7 +16,7 @@ You need:
 
 From the SQL Tutor project directory:
 
-    cd ~/Projects/sql-tutor
+    cd /path/to/sql-tutor
 
 Create and activate a Python environment if you do not already have one:
 
