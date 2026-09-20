@@ -1,0 +1,93 @@
+[
+  {
+    "exercise_id": "select-active-users",
+    "title": "Select active users",
+    "description": "Return the names of active users.",
+    "concept": "WHERE",
+    "difficulty": "beginner",
+    "schema": [
+      {
+        "name": "users",
+        "columns": [
+          {
+            "name": "id",
+            "data_type": "INTEGER"
+          },
+          {
+            "name": "name",
+            "data_type": "TEXT"
+          },
+          {
+            "name": "active",
+            "data_type": "INTEGER"
+          }
+        ]
+      }
+    ],
+    "expected_query": "SELECT name FROM users WHERE active = 1;",
+    "setup_statements": [
+      "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, active INTEGER NOT NULL)",
+      "INSERT OR IGNORE INTO users (id, name, active) VALUES (1, 'Alice', 1)",
+      "INSERT OR IGNORE INTO users (id, name, active) VALUES (2, 'Bob', 0)",
+      "INSERT OR IGNORE INTO users (id, name, active) VALUES (3, 'Cara', 1)"
+    ]
+  },
+  {
+    "exercise_id": "order-users-by-name",
+    "title": "Order users by name",
+    "description": "Return all user names in ascending alphabetical order.",
+    "concept": "ORDER BY",
+    "difficulty": "beginner",
+    "schema": [
+      {
+        "name": "users",
+        "columns": [
+          {
+            "name": "id",
+            "data_type": "INTEGER"
+          },
+          {
+            "name": "name",
+            "data_type": "TEXT"
+          }
+        ]
+      }
+    ],
+    "expected_query": "SELECT name FROM users ORDER BY name ASC;",
+    "setup_statements": [
+      "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, active INTEGER NOT NULL)",
+      "INSERT OR IGNORE INTO users (id, name, active) VALUES (1, 'Alice', 1)",
+      "INSERT OR IGNORE INTO users (id, name, active) VALUES (2, 'Bob', 0)",
+      "INSERT OR IGNORE INTO users (id, name, active) VALUES (3, 'Cara', 1)"
+    ]
+  },
+  {
+    "exercise_id": "count-users-by-status",
+    "title": "Count users by status",
+    "description": "Return each active status and the number of users in that status.",
+    "concept": "GROUP BY",
+    "difficulty": "intermediate",
+    "schema": [
+      {
+        "name": "users",
+        "columns": [
+          {
+            "name": "id",
+            "data_type": "INTEGER"
+          },
+          {
+            "name": "active",
+            "data_type": "INTEGER"
+          }
+        ]
+      }
+    ],
+    "expected_query": "SELECT active, COUNT(*) FROM users GROUP BY active;",
+    "setup_statements": [
+      "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, active INTEGER NOT NULL)",
+      "INSERT OR IGNORE INTO users (id, name, active) VALUES (1, 'Alice', 1)",
+      "INSERT OR IGNORE INTO users (id, name, active) VALUES (2, 'Bob', 0)",
+      "INSERT OR IGNORE INTO users (id, name, active) VALUES (3, 'Cara', 1)"
+    ]
+  }
+]

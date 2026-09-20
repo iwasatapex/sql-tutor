@@ -81,4 +81,5 @@ class ExerciseGenerator:
             difficulty=ExerciseDifficulty(payload["difficulty"]),
             schema=schema,
             expected_query=payload["expected_query"],
+            setup_statements=tuple(payload.get("setup_statements", ())),
         )
