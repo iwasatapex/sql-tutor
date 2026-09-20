@@ -2,6 +2,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from sql_tutor.exercises.models import Exercise
+from sql_tutor.learning.mastery import MasteryResult
 from sql_tutor.sql.engine import SQLEngine
 from sql_tutor.sql.evaluator import ExerciseEvaluator
 from sql_tutor.sql.safety import UnsafeQueryError
@@ -41,6 +42,11 @@ class TutorOrchestrator:
                 is_correct=is_correct,
                 hint_level=hint_level,
             )
+
+    def get_mastery(self, exercise_id: str) -> MasteryResult:
+        if self.progress_store is None:
+            raise RuntimeError("Progress store is required to retrieve mastery.")
+        return self.progress_store.get_mastery(exercise_id)
 
     def submit_query(
         self,
