@@ -35,3 +35,33 @@ def test_attempts_are_filtered_by_exercise() -> None:
     assert attempts[0].exercise_id == "exercise-a"
 
     store.close()
+
+from sql_tutor.learning.mastery import MasteryLevel
+
+
+def test_get_mastery_for_exercise() -> None:
+    store = ProgressStore()
+
+    store.record_attempt('select-users', 'SELECT 1;', True)
+    store.record_attempt('select-users', 'SELECT 2;', True)
+    store.record_attempt('select-users', 'SELECT 3;', False)
+    store.record_attempt('select-users', 'SELECT 4;', True)
+
+    mastery = store.get_mastery('select-users')
+
+    assert mastery.level == MasteryLevel.PROFICIENT
+    assert mastery.accuracy == 0.75
+
+    store.close()
+
+
+def test_get_mastery_for_new_exercise() -> None:
+    store = ProgressStore()
+
+    mastery = store.get_mastery('new-exercise')
+
+    assert mastery.level == MasteryLevel.NOVICE
+    assert mastery.accuracy == 0.0
+
+    store.close()
+

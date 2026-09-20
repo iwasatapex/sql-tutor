@@ -2,6 +2,8 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from sql_tutor.learning.mastery import MasteryResult, MasteryTracker
+
 
 @dataclass(frozen=True)
 class Attempt:
@@ -93,6 +95,11 @@ class ProgressStore:
             )
             for row in rows
         )
+
+    def get_mastery(self, exercise_id: str) -> MasteryResult:
+        attempts = self.get_attempts(exercise_id)
+        results = tuple(attempt.is_correct for attempt in attempts)
+        return MasteryTracker().calculate(results)
 
     def close(self) -> None:
         self._connection.close()
