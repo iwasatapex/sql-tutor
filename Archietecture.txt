@@ -1,0 +1,47 @@
+sql-tutor/
+│
+├── README.md
+├── pyproject.toml
+├── .gitignore
+│
+├── src/
+│   └── sql_tutor/
+│       ├── __init__.py
+│       ├── config.py
+│       │
+│       ├── llm/
+│       │   ├── base.py
+│       │   ├── models.py
+│       │   ├── factory.py
+│       │   └── mock.py
+│       │
+│       ├── exercises/
+│       │   ├── models.py
+│       │   ├── generator.py
+│       │   └── validator.py
+│       │
+│       ├── sql/
+│       │   ├── engine.py
+│       │   ├── safety.py
+│       │   └── comparator.py
+│       │
+│       ├── learning/
+│       │   ├── curriculum.py
+│       │   ├── difficulty.py
+│       │   └── mastery.py
+│       │
+│       ├── tutor/
+│       │   └── orchestrator.py
+│       │
+│       └── storage/
+│           └── database.py
+│
+├── data/
+│   ├── curriculum/
+│   ├── exercises/
+│   └── datasets/
+│
+└── tests/
+    ├── test_llm.py
+    ├── test_exercises.py
+    └── test_sql.py
