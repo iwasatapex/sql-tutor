@@ -83,4 +83,4 @@ def test_question_type_rejects_unsupported_modes(
     session: LearningSession,
 ) -> None:
     with pytest.raises(ValueError, match="Unsupported question type"):
-        session.set_question_type("predict")
+        session.set_question_type("explain")

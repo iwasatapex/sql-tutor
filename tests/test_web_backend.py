@@ -100,7 +100,7 @@ def test_unsupported_question_type_is_rejected(tmp_path: Path) -> None:
     app = make_app(tmp_path)
     try:
         with pytest.raises(ValueError, match="Unsupported question type"):
-            app.choose_question_type("predict")
+            app.choose_question_type("explain")
     finally:
         app.close()
 
@@ -175,6 +175,57 @@ def test_skip_advances_and_next_skips_current(tmp_path: Path) -> None:
         second = skipped["exercise"]["id"]
         advanced = app.next()
         assert advanced["exercise"]["id"] not in {first, second}
+    finally:
+        app.close()
+
+
+def _make_predict_exercise(app: TutorWebApp) -> None:
+    """Configure the app to serve a predict-type exercise."""
+    app.session.set_question_type("predict")
+    app.session.next()
+
+
+def test_predict_correct_prediction(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    try:
+        _make_predict_exercise(app)
+        exercise_id = app.session.current.exercise_id
+
+        response = app.predict(app.session.expected_output())
+        assert response["feedback"]["is_correct"] is True
+        assert response["feedback"]["message"] == (
+            "Correct! Your prediction matched the query output."
+        )
+        # Predict answers count like any other attempt so progress advances.
+        attempts = app.session.progress_store.get_attempts(exercise_id)
+        assert [attempt.is_correct for attempt in attempts] == [True]
+    finally:
+        app.close()
+
+
+def test_predict_incorrect_prediction(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    try:
+        _make_predict_exercise(app)
+        exercise_id = app.session.current.exercise_id
+        response = app.predict("wrong | data\n1 | 2")
+        assert response["feedback"]["is_correct"] is False
+        assert "actual_output" in response
+        assert response["actual_output"]
+        assert response["failed_attempts"] == 1
+
+        attempts = app.session.progress_store.get_attempts(exercise_id)
+        assert [attempt.is_correct for attempt in attempts] == [False]
+    finally:
+        app.close()
+
+
+def test_predict_empty_prediction_rejected(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    try:
+        _make_predict_exercise(app)
+        with pytest.raises(EmptySubmissionError, match="cannot be empty"):
+            app.predict("   ")
     finally:
         app.close()
 
@@ -303,7 +354,7 @@ def test_http_error_paths_return_json(live_server: int) -> None:
     assert "Unknown difficulty" in bad_difficulty["error"]
 
     status, bad_type = post_json(
-        port, "/api/question-type", {"question_type": "predict"}
+        port, "/api/question-type", {"question_type": "explain"}
     )
     assert status == 400
     assert "Unsupported question type" in bad_type["error"]
@@ -347,6 +398,43 @@ def test_http_submit_next_skip_hint_progress_flow(live_server: int) -> None:
         "/api/generate",
         {"concept": "SELECT", "difficulty": "beginner",
          "question_type": "write"},
-    )
+        )
     assert status == 200
     assert generated["exercise"]["concept"].upper() == "SELECT"
+
+
+def test_http_predict_endpoint(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    handler_cls = create_test_server(app)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler_cls)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+
+        # The app starts on a write exercise; ask for a predict answer.
+        app.choose_question_type("predict")
+        exercise = app.session.current
+        assert exercise is not None
+        correct = app.session.expected_output()
+
+        status, body = post_json(port, "/api/predict", {"prediction": correct})
+        assert status == 200
+        assert body["feedback"]["is_correct"] is True
+        assert body["actual_output"]
+
+        # Wrong prediction
+        status, body2 = post_json(port, "/api/predict", {"prediction": "zzz | zzz"})
+        assert status == 200
+        assert body2["feedback"]["is_correct"] is False
+
+        # Empty prediction is rejected
+        status, body3 = post_json(port, "/api/predict", {"prediction": "   "})
+        assert status == 400
+        assert "cannot be empty" in body3["error"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+        app.close()

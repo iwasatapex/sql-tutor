@@ -91,11 +91,23 @@ def test_topic_difficulty_and_type_controls_are_wired() -> None:
     assert "/api/config" in HTML
 
 
-def test_write_and_debug_sql_are_offered_as_supported() -> None:
+def test_write_debug_and_predict_are_offered_as_supported() -> None:
     assert 'value="write"' in HTML
     assert 'value="debug"' in HTML
+    assert 'value="predict"' in HTML
     assert "not supported yet" in HTML
     assert 'id="provider-info"' in HTML
+
+
+def test_predict_panel_and_endpoint_are_wired() -> None:
+    assert 'id="predict-panel"' in HTML
+    assert 'id="predict-query-display"' in HTML
+    assert 'id="prediction"' in HTML
+    assert 'id="check-prediction"' in HTML
+    assert "/api/predict" in HTML
+    assert "renderPredictPanel" in HTML
+    assert "checkPrediction" in HTML
+    assert "actual_output" in HTML
 
 
 def test_no_duplicate_element_ids() -> None:

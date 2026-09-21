@@ -11,6 +11,7 @@ from sql_tutor.sql.engine import QueryResult, SQLEngine
 from sql_tutor.storage.progress import ProgressStore
 from sql_tutor.tutor.hints import Hint
 from sql_tutor.tutor.orchestrator import TutorFeedback, TutorOrchestrator
+from sql_tutor.tutor.prediction import format_query_result, prediction_matches
 from sql_tutor.exercises.generator import ExerciseGenerator, ExerciseGenerationError
 from sql_tutor.exercises.models import ExerciseDifficulty
 from sql_tutor.exercises.sqlite_compat import normalize_difficulty_label
@@ -74,6 +75,24 @@ class SubmissionOutcome:
     @property
     def error(self) -> str | None:
         return self.feedback.error
+
+
+@dataclass(frozen=True)
+class PredictionOutcome:
+    """Result of grading a Predict output answer."""
+
+    feedback: TutorFeedback
+    actual_output: str
+    failed_attempts: int
+    exercise_completed: bool
+
+    @property
+    def is_correct(self) -> bool:
+        return self.feedback.is_correct
+
+    @property
+    def message(self) -> str:
+        return self.feedback.message
 
 
 class LearningSession:
@@ -215,7 +234,7 @@ class LearningSession:
         self.selected_difficulty = ExerciseDifficulty(normalized)
 
     def set_question_type(self, question_type: str | None) -> None:
-        """Set how the learner practices; write and debug SQL are supported."""
+        """Set how the learner practices; write, debug, and predict are supported."""
         normalized = (question_type or "write").strip().lower()
         if normalized in {"write", "write sql", "write_sql"}:
             self.selected_question_type = "write"
@@ -223,9 +242,12 @@ class LearningSession:
         if normalized in {"debug", "debug sql", "debug_sql"}:
             self.selected_question_type = "debug"
             return
+        if normalized in {"predict", "predict output", "predict_output"}:
+            self.selected_question_type = "predict"
+            return
         raise ValueError(
             f"Unsupported question type: {question_type!r}. "
-            "Only 'write' (Write SQL) and 'debug' (Debug SQL) are currently supported."
+            "Only 'write', 'debug', and 'predict' question types are currently supported."
         )
 
     def next_exercise(self) -> Exercise | None:
@@ -322,6 +344,58 @@ class LearningSession:
             exercise_completed=False,
         )
 
+    def expected_output(self) -> str:
+        """Pipe-separated output of the current exercise's reference query."""
+        exercise, engine = self._require_active()
+
+        return format_query_result(engine.execute_query(exercise.expected_query))
+
+    def submit_prediction(self, prediction: str) -> PredictionOutcome:
+        """Grade a predicted result for the active exercise.
+
+        Nothing is run on the learner's behalf: the reference query is
+        authored content, so executing it against the exercise database is
+        how the real output is produced. The attempt is recorded like any
+        other answer so topic progress and mastery stay accurate.
+        """
+        if not str(prediction or "").strip():
+            raise ValueError("Prediction cannot be empty")
+
+        exercise, _ = self._require_active()
+        actual_output = self.expected_output()
+        is_correct = prediction_matches(prediction, actual_output)
+        feedback = TutorFeedback(
+            is_correct=is_correct,
+            message=(
+                "Correct! Your prediction matched the query output."
+                if is_correct
+                else "Not quite. Compare your prediction with the actual output."
+            ),
+            reason=(
+                ""
+                if is_correct
+                else "Read each clause of the query again and check the "
+                "returned columns and rows."
+            ),
+        )
+
+        self._attempts += 1
+
+        if not is_correct:
+            self.failed_attempts += 1
+
+        self._last_feedback = feedback
+        self._record_attempt(
+            exercise, prediction, is_correct, self.hints_used or None
+        )
+
+        return PredictionOutcome(
+            feedback=feedback,
+            actual_output=actual_output,
+            failed_attempts=self.failed_attempts,
+            exercise_completed=is_correct,
+        )
+
     def request_hint(self) -> Hint:
         exercise, _ = self._require_active()
         self.hints_used = min(self.hints_used + 1, _MAX_HINT_LEVEL)
@@ -349,6 +423,21 @@ class LearningSession:
     def close(self) -> None:
         self._close_engine()
         self.current = None
+
+    def _record_attempt(
+        self,
+        exercise: Exercise,
+        answer: str,
+        is_correct: bool,
+        hint_level: int | None,
+    ) -> None:
+        """Log one attempt, whatever question type produced the answer."""
+        self.progress_store.record_attempt(
+            exercise_id=exercise.exercise_id,
+            student_query=answer,
+            is_correct=is_correct,
+            hint_level=hint_level,
+        )
 
     def _provision(self, exercise: Exercise) -> tuple[SQLEngine, bool]:
         """Return ``(engine, owned)`` with the exercise's data loaded.
