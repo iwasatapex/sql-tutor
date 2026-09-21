@@ -84,6 +84,10 @@ class ProgressStore:
                 )
                 connection.commit()
 
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("ProgressStore is closed")
+
     def record_attempt(
         self,
         exercise_id: str,
@@ -91,6 +95,7 @@ class ProgressStore:
         is_correct: bool,
         hint_level: int | None = None,
     ) -> Attempt:
+        self._ensure_open()
         created_at = datetime.now(timezone.utc).isoformat()
         with self._lock:
             for connection in self._connections():
@@ -118,6 +123,7 @@ class ProgressStore:
         )
 
     def _fetch_attempts(self, query: str, parameters: tuple[object, ...] = ()) -> tuple[Attempt, ...]:
+        self._ensure_open()
         with self._lock:
             for connection in self._connections():
                 rows = connection.execute(query, parameters).fetchall()

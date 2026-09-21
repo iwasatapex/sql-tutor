@@ -7,6 +7,7 @@ import pytest
 from sql_tutor.config import Settings
 from sql_tutor.llm.base import LLMProviderError
 from sql_tutor.llm.factory import create_provider
+from sql_tutor.llm.http import post_json
 from sql_tutor.llm.mock import MockLLMProvider
 from sql_tutor.llm.models import LLMRequest
 from sql_tutor.llm.ollama import OllamaProvider
@@ -111,6 +112,13 @@ def test_unreachable_server_becomes_provider_error() -> None:
 
     with pytest.raises(LLMProviderError, match="Could not reach"):
         provider.generate(LLMRequest(prompt="q"))
+
+
+def test_http_client_rejects_oversized_responses(make_server) -> None:
+    server = make_server(200, "x" * 1024)
+
+    with pytest.raises(LLMProviderError, match="too large|size"):
+        post_json(server.url, {"hello": "world"}, max_response_bytes=64)
 
 
 def test_openai_compatible_request_and_auth(make_server) -> None:

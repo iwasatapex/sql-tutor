@@ -24,6 +24,7 @@ from sql_tutor.tutor.session import (
     NoActiveExerciseError,
     NoExercisesAvailableError,
     SubmissionOutcome,
+    _ignore_row_order,
 )
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -1,4 +1,5 @@
 import logging
+import re
 import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
@@ -588,5 +589,50 @@ class LearningSession:
 
 
 def _ignore_row_order(exercise: Exercise) -> bool:
-    """Row order only matters when the reference query sorts."""
-    return "ORDER BY" not in exercise.expected_query.upper()
+    """Row order only matters when the reference query sorts at top level."""
+    query = exercise.expected_query
+    index = 0
+    depth = 0
+    length = len(query)
+
+    while index < length:
+        char = query[index]
+
+        if char in {"'", '"', "`"}:
+            quote = char
+            index += 1
+            while index < length:
+                if query[index] == quote:
+                    index += 1
+                    break
+                if query[index] == "\\" and quote == "'":
+                    index += 2
+                    continue
+                index += 1
+            continue
+
+        if char == "-" and index + 1 < length and query[index + 1] == "-":
+            index += 2
+            while index < length and query[index] not in "\r\n":
+                index += 1
+            continue
+
+        if char == "/" and index + 1 < length and query[index + 1] == "*":
+            index += 2
+            while index + 1 < length and not (query[index] == "*" and query[index + 1] == "/"):
+                index += 1
+            if index + 1 < length:
+                index += 2
+            continue
+
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth = max(0, depth - 1)
+
+        if depth == 0 and re.match(r"(?is)\bORDER\s+BY\b", query[index:]):
+            return False
+
+        index += 1
+
+    return True

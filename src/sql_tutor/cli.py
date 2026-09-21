@@ -294,6 +294,14 @@ def main(
     if command == "web":
         from sql_tutor.web import serve
 
+        if settings.llm_provider == "mock":
+            settings = Settings(
+                **{
+                    **settings.__dict__,
+                    "llm_provider": "ollama",
+                    "llm_base_url": settings.llm_base_url or "http://127.0.0.1:11434",
+                }
+            )
         try:
             serve(settings, host=args.host, port=args.port, open_browser=args.open_browser)
         except (LLMProviderError, ExerciseLoadError, OSError) as error:
