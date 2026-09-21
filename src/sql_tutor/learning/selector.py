@@ -151,9 +151,16 @@ class ExerciseSelector:
         exclude_ids: Collection[str] = (),
         concept: str | None = None,
         difficulty: ExerciseDifficulty | None = None,
+        question_type: str | None = None,
     ) -> Exercise | None:
         solved_ids = {a.exercise_id for a in attempts if a.is_correct}
         unavailable = solved_ids | set(exclude_ids)
+
+        # Determine which question types to include.
+        if question_type is None:
+            allowed_types: set[str] = set()
+        else:
+            allowed_types = {question_type.strip().lower()}
 
         for progress in self.topic_progress(attempts):
             if concept is not None and progress.topic.title.upper() != concept.strip().upper():
@@ -167,6 +174,21 @@ class ExerciseSelector:
                 e for e in candidates
                 if e.exercise_id not in unavailable
             ]
+
+            if allowed_types:
+                before = len(candidates)
+                candidates = [
+                    e for e in candidates
+                    if e.question_type.value in allowed_types
+                ]
+                if not candidates and before:
+                    # No exercise of the requested type -- fall back to any type
+                    # so the selector can still return something rather than
+                    # failing with "No exercises available".
+                    candidates = [
+                        e for e in self.repository.for_concept(progress.topic.title)
+                        if e.exercise_id not in unavailable
+                    ]
 
             if not candidates:
                 continue

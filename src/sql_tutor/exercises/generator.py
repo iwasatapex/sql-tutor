@@ -29,7 +29,10 @@ _SYSTEM_PROMPT = (
     "NVL(), ROWNUM, DUAL, ...). Prefer portable SQL plus SQLite-supported "
     "features such as strftime(), window functions with OVER/PARTITION BY, "
     "and recursive CTEs. "
-    "Keep the schema, description, setup_sql, and expected_query consistent. "
+    "Keep the schema, description, setup_sql, expected_query, question_type, "
+    "and broken_query consistent. "
+    "For debug exercises, broken_query must be a genuinely buggy query that "
+    "the expected_query fixes. "
     "Reply with a single JSON object and nothing else."
 )
 
@@ -43,7 +46,9 @@ Use exactly this JSON shape:
   "difficulty": "<the difficulty>",
   "schema": [{"name": "table", "columns": [{"name": "col", "data_type": "INTEGER"}]}],
   "setup_sql": ["CREATE TABLE ...", "INSERT INTO ... VALUES (...)"],
-  "expected_query": "SELECT ...;"
+  "expected_query": "SELECT ...;",
+  "question_type": "write",
+  "broken_query": ""
 }
 Rules: SQLite dialect ONLY (no ROW_COUNT(), NOW(), DATE_FORMAT(), or other
 non-SQLite functions); setup_sql contains only CREATE TABLE and INSERT INTO,
@@ -59,7 +64,14 @@ ORDER BY, ROW_NUMBER/RANK/DENSE_RANK/LAG/LEAD, and ROWS/RANGE frame syntax;
 for DDL/DML concepts, still provide a read-only learner task and a
 SELECT-based expected_query;
 difficulty must be exactly one of: beginner, intermediate, advanced
-(lowercase)."""
+(lowercase);
+question_type must be exactly one of: write, debug, predict, explain
+(lowercase);
+for debug exercises, broken_query is a non-empty SQL query that contains
+a real bug (wrong column, wrong operator, missing WHERE, wrong JOIN, etc.)
+that the learner must fix; the expected_query is the correct version;
+for write, predict, and explain exercises, broken_query must be an empty
+string."""
 
 _FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
 _MAX_RESPONSE_CHARS = 100_000
@@ -228,4 +240,5 @@ class ExerciseGenerator:
                 normalize_question_type_label(payload.get("question_type", "write"))
                 or "write"
             ),
+            broken_query=payload.get("broken_query", ""),
         )

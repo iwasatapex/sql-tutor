@@ -91,8 +91,9 @@ def test_topic_difficulty_and_type_controls_are_wired() -> None:
     assert "/api/config" in HTML
 
 
-def test_only_write_sql_is_offered_as_supported() -> None:
+def test_write_and_debug_sql_are_offered_as_supported() -> None:
     assert 'value="write"' in HTML
+    assert 'value="debug"' in HTML
     assert "not supported yet" in HTML
     assert 'id="provider-info"' in HTML
 

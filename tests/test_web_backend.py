@@ -100,7 +100,7 @@ def test_unsupported_question_type_is_rejected(tmp_path: Path) -> None:
     app = make_app(tmp_path)
     try:
         with pytest.raises(ValueError, match="Unsupported question type"):
-            app.choose_question_type("debug")
+            app.choose_question_type("predict")
     finally:
         app.close()
 
@@ -303,7 +303,7 @@ def test_http_error_paths_return_json(live_server: int) -> None:
     assert "Unknown difficulty" in bad_difficulty["error"]
 
     status, bad_type = post_json(
-        port, "/api/question-type", {"question_type": "debug"}
+        port, "/api/question-type", {"question_type": "predict"}
     )
     assert status == 400
     assert "Unsupported question type" in bad_type["error"]

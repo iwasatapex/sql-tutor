@@ -215,14 +215,17 @@ class LearningSession:
         self.selected_difficulty = ExerciseDifficulty(normalized)
 
     def set_question_type(self, question_type: str | None) -> None:
-        """Set how the learner practices; only writing SQL is supported."""
+        """Set how the learner practices; write and debug SQL are supported."""
         normalized = (question_type or "write").strip().lower()
         if normalized in {"write", "write sql", "write_sql"}:
             self.selected_question_type = "write"
             return
+        if normalized in {"debug", "debug sql", "debug_sql"}:
+            self.selected_question_type = "debug"
+            return
         raise ValueError(
             f"Unsupported question type: {question_type!r}. "
-            "Only 'write' (Write SQL) is currently supported."
+            "Only 'write' (Write SQL) and 'debug' (Debug SQL) are currently supported."
         )
 
     def next_exercise(self) -> Exercise | None:
@@ -257,6 +260,7 @@ class LearningSession:
                 exclude_ids=self._skipped,
                 concept=self.selected_concept,
                 difficulty=self.selected_difficulty,
+                question_type=self.selected_question_type,
             )
 
         self.failed_attempts = 0

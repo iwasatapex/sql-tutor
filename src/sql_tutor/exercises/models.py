@@ -40,6 +40,7 @@ class Exercise:
     expected_query: str
     setup_sql: tuple[str, ...] = ()
     question_type: QuestionType = QuestionType.WRITE
+    broken_query: str = ""
 
     def __post_init__(self) -> None:
         if not self.exercise_id.strip():
@@ -64,4 +65,9 @@ class Exercise:
             raise ValueError(
                 f"Unknown question_type: {self.question_type!r}. "
                 "Use write, debug, predict, or explain."
+            )
+
+        if self.question_type == QuestionType.DEBUG and not self.broken_query.strip():
+            raise ValueError(
+                "Debug exercises must include a non-empty broken_query"
             )

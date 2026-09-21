@@ -159,6 +159,7 @@ class ExerciseRepository:
                 )
                 or "write"
             ),
+            broken_query=payload.get("broken_query", ""),
         )
 
 
@@ -183,4 +184,5 @@ def exercise_to_payload(exercise: Exercise) -> dict[str, Any]:
         "setup_sql": list(exercise.setup_sql),
         "expected_query": exercise.expected_query,
         "question_type": exercise.question_type.value,
+        "broken_query": exercise.broken_query,
     }
