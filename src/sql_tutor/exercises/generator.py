@@ -5,11 +5,13 @@ import re
 from sql_tutor.exercises.models import (
     Exercise,
     ExerciseDifficulty,
+    QuestionType,
     TableColumn,
     TableSchema,
 )
 from sql_tutor.exercises.sqlite_compat import (
     normalize_difficulty_label,
+    normalize_question_type_label,
     normalize_setup_statements,
 )
 from sql_tutor.exercises.validator import validate_exercise
@@ -222,4 +224,8 @@ class ExerciseGenerator:
             schema=schema,
             expected_query=payload["expected_query"],
             setup_sql=tuple(setup_sql),
+            question_type=QuestionType(
+                normalize_question_type_label(payload.get("question_type", "write"))
+                or "write"
+            ),
         )

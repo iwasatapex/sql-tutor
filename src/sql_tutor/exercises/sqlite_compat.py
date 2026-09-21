@@ -204,3 +204,26 @@ def normalize_difficulty_label(value: Any) -> str | None:
     if value is None:
         return None
     return _DIFFICULTY_ALIASES.get(str(value).strip().lower())
+
+
+_QUESTION_TYPE_ALIASES = {
+    "write": "write",
+    "write sql": "write",
+    "write_sql": "write",
+    "debug": "debug",
+    "debug sql": "debug",
+    "debug_sql": "debug",
+    "predict": "predict",
+    "predict output": "predict",
+    "predict_output": "predict",
+    "explain": "explain",
+    "explain sql": "explain",
+    "explain_sql": "explain",
+}
+
+
+def normalize_question_type_label(value: Any) -> str | None:
+    """Map ``Write SQL``/``write_sql``/``debug`` style labels to enum values."""
+    if value is None:
+        return None
+    return _QUESTION_TYPE_ALIASES.get(str(value).strip().lower())

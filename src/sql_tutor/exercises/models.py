@@ -1,11 +1,20 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+from sql_tutor.exercises.sqlite_compat import normalize_question_type_label
+
 
 class ExerciseDifficulty(StrEnum):
     BEGINNER = "beginner"
     INTERMEDIATE = "intermediate"
     ADVANCED = "advanced"
+
+
+class QuestionType(StrEnum):
+    WRITE = "write"
+    DEBUG = "debug"
+    PREDICT = "predict"
+    EXPLAIN = "explain"
 
 
 @dataclass(frozen=True)
@@ -30,6 +39,7 @@ class Exercise:
     schema: tuple[TableSchema, ...]
     expected_query: str
     setup_sql: tuple[str, ...] = ()
+    question_type: QuestionType = QuestionType.WRITE
 
     def __post_init__(self) -> None:
         if not self.exercise_id.strip():
@@ -49,3 +59,9 @@ class Exercise:
 
         if not self.expected_query.strip():
             raise ValueError("expected_query cannot be empty")
+
+        if normalize_question_type_label(self.question_type.value) is None:
+            raise ValueError(
+                f"Unknown question_type: {self.question_type!r}. "
+                "Use write, debug, predict, or explain."
+            )

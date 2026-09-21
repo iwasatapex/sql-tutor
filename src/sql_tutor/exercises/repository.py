@@ -6,9 +6,11 @@ from typing import Any
 from sql_tutor.exercises.models import (
     Exercise,
     ExerciseDifficulty,
+    QuestionType,
     TableColumn,
     TableSchema,
 )
+from sql_tutor.exercises import sqlite_compat
 
 
 class ExerciseLoadError(ValueError):
@@ -151,6 +153,12 @@ class ExerciseRepository:
             schema=schema,
             expected_query=payload["expected_query"],
             setup_sql=setup_sql,
+            question_type=QuestionType(
+                sqlite_compat.normalize_question_type_label(
+                    payload.get("question_type", "write")
+                )
+                or "write"
+            ),
         )
 
 
@@ -174,4 +182,5 @@ def exercise_to_payload(exercise: Exercise) -> dict[str, Any]:
         ],
         "setup_sql": list(exercise.setup_sql),
         "expected_query": exercise.expected_query,
+        "question_type": exercise.question_type.value,
     }
