@@ -90,18 +90,148 @@ with SQLite `query_only`, a 2 second timeout, and a 10,000 row cap. Generated
 
 See `docs/architecture.md`.
 
-## Ollama SQL models
+## Ollama setup
 
-Run the browser tutor with the custom Granite model:
+Ollama is optional. SQL Tutor uses the mock provider by default, while Ollama
+provides local model-generated hints and exercise generation.
 
-```fish
-./scripts/run-ollama.fish granite
+### Requirements
+
+- Python 3.12 or newer
+- Git
+- [Ollama](https://ollama.com/download), if using local LLM features
+- At least one downloaded Ollama model
+
+Activate the project Conda environment and install SQL Tutor:
+
+```bash
+conda activate projects
+python -m pip install -e ".[dev]"
 ```
 
-Or use Gemma:
+If the environment is not active, prefix commands with
+`conda run -n projects`.
 
-```fish
-./scripts/run-ollama.fish gemma
+### Install and check Ollama
+
+```bash
+ollama --version
+ollama list
 ```
 
-The script sets `SQL_TUTOR_LLM_PROVIDER=ollama`, selects the model, checks that Ollama is reachable, and starts the web tutor.
+On Linux, start the server in another terminal only if it is not already
+running as a system service:
+
+```bash
+ollama serve
+```
+
+### Download and choose a model
+
+The model name configured below must exactly match the name shown by
+`ollama list`. These are the models currently offered by the project:
+
+```bash
+ollama pull granite4.1:3b-q6_K
+ollama pull batiai/gemma4-e4b:q4
+ollama pull ornith-1.5-9b-iq4-xs:latest
+ollama run <your-model-name>
+```
+
+Start with the smallest model that fits your hardware. Larger models can
+provide richer explanations and hints but need more memory and may be slower.
+The browser UI also lists installed models in **Settings**, where you can
+choose the active model.
+
+### Configure SQL Tutor
+
+Set these variables in the terminal where SQL Tutor will run:
+
+```bash
+export SQL_TUTOR_LLM_PROVIDER=ollama
+export SQL_TUTOR_LLM_MODEL=<your-model-name>
+export SQL_TUTOR_LLM_BASE_URL=http://localhost:11434
+export SQL_TUTOR_LLM_TIMEOUT=120
+```
+
+For Fish:
+
+```fish
+set -gx SQL_TUTOR_LLM_PROVIDER ollama
+set -gx SQL_TUTOR_LLM_MODEL <your-model-name>
+set -gx SQL_TUTOR_LLM_BASE_URL http://localhost:11434
+set -gx SQL_TUTOR_LLM_TIMEOUT 120
+```
+
+To make Fish settings persistent, add them to
+`~/.config/fish/config.fish`. To use another Ollama host, change
+`SQL_TUTOR_LLM_BASE_URL`, for example:
+
+```bash
+export SQL_TUTOR_LLM_BASE_URL=http://192.168.1.50:11434
+```
+
+Keep remote Ollama servers on trusted networks and do not expose them publicly
+without understanding the security implications.
+
+### Start and test
+
+Run the command-line tutor or browser UI:
+
+```bash
+python -m sql_tutor.cli practice
+python -m sql_tutor.cli web --open
+```
+
+Without `--open`, visit `http://127.0.0.1:8765` manually. To test exercise
+generation through Ollama:
+
+```bash
+python -m sql_tutor.cli generate \
+  --concept "GROUP BY" \
+  --difficulty intermediate \
+  --save
+```
+
+Generated exercises are validated against a scratch SQLite database before
+being saved. Generation time depends on the model and available CPU/GPU
+resources.
+
+### Run without Ollama
+
+Unset the provider variables and SQL Tutor returns to deterministic hints and
+local SQL exercises:
+
+```bash
+unset SQL_TUTOR_LLM_PROVIDER SQL_TUTOR_LLM_MODEL
+python -m sql_tutor.cli web --open
+```
+
+For Fish:
+
+```fish
+set -e SQL_TUTOR_LLM_PROVIDER
+set -e SQL_TUTOR_LLM_MODEL
+python -m sql_tutor.cli web --open
+```
+
+### Troubleshooting
+
+- **Could not reach `http://localhost:11434`**: confirm Ollama is running,
+  run `ollama list`, and check `SQL_TUTOR_LLM_BASE_URL`.
+- **Model not found**: run `ollama list`, pull the exact model name, and set
+  `SQL_TUTOR_LLM_MODEL` to that name.
+- **`SQL_TUTOR_LLM_MODEL` must be set**: set both required Ollama variables
+  above.
+- **Model is too slow or uses too much memory**: try a smaller model or
+  quantization, avoid running multiple large models, or increase
+  `SQL_TUTOR_LLM_TIMEOUT`.
+- **Browser UI does not start**: run `python -m pytest -q`, confirm the
+  `projects` environment is active, or try another port:
+
+  ```bash
+  python -m sql_tutor.cli web --port 8877
+  ```
+
+Progress is stored at `~/.local/share/sql-tutor/progress.db` by default.
+Override it with `--db` or `SQL_TUTOR_DB`.

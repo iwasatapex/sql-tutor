@@ -8,5 +8,7 @@ __pycache__/
 data/*.db
 data/*.sqlite
 *.egg-info/
-.continue/agents/new-config.yaml
-.continue/agents/new-config-1.yaml
+
+# Local editor and agent configuration
+.vscode/settings.json
+.continue/agents/new-config*.yaml
