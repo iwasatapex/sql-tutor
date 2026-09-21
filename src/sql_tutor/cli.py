@@ -358,6 +358,10 @@ def main(
             progress_store=store,
             llm_provider=llm_provider,
         ),
+        generator=(
+            ExerciseGenerator(llm_provider, max_attempts=2, verify=True)
+            if llm_provider is not None else None
+        ),
     )
 
     try:

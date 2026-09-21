@@ -123,8 +123,9 @@ def test_full_course_can_be_completed_by_reference_answers(
         completed += 1
         assert completed <= len(session.repository), "selector looped"
 
-    # Topics finish once the learner is proficient, so not every exercise
-    # is required, but every topic must be reachable.
+    # Curated topics are completed through the bundled catalog. Additional
+    # curriculum topics are generation-first and have no static exercises.
     progress = session.topic_progress()
-    assert all(p.is_complete for p in progress)
-    assert completed >= 2 * len(progress)
+    catalog_progress = [item for item in progress if item.total_exercises > 0]
+    assert all(item.is_complete for item in catalog_progress)
+    assert completed >= 2 * len(catalog_progress)

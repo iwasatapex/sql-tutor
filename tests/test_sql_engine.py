@@ -62,3 +62,17 @@ def test_write_query_is_rejected(engine: SQLEngine) -> None:
         engine.execute_query(
             "DELETE FROM users WHERE id = 1;"
         )
+
+
+def test_query_can_run_from_another_thread(engine: SQLEngine) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            engine.execute_query,
+            "SELECT id, name FROM users ORDER BY id;",
+        )
+        result = future.result()
+
+    assert result.columns == ("id", "name")
+    assert result.rows == ((1, "Alice"), (2, "Bob"), (3, "Charlie"))

@@ -28,3 +28,32 @@ def test_curriculum_returns_none_for_unknown_concept() -> None:
     curriculum = Curriculum.default()
 
     assert curriculum.get_topic("UNKNOWN") is None
+
+def test_curriculum_covers_core_and_advanced_sql_topics() -> None:
+    curriculum = Curriculum.default()
+    titles = {topic.title for topic in curriculum.topics}
+
+    required = {
+        "SELECT",
+        "WHERE",
+        "GROUP BY",
+        "JOIN",
+        "COMMON TABLE EXPRESSIONS",
+        "RECURSIVE CTE",
+        "WINDOW FUNCTIONS",
+        "WINDOW FRAMES",
+        "RANKING FUNCTIONS",
+        "LAG AND LEAD",
+        "TRANSACTIONS",
+        "INDEXES",
+    }
+
+    assert required <= titles
+    assert len(curriculum.topics) >= 40
+
+
+def test_curriculum_orders_are_contiguous() -> None:
+    curriculum = Curriculum.default()
+    assert [topic.order for topic in curriculum.topics] == list(
+        range(1, len(curriculum.topics) + 1)
+    )

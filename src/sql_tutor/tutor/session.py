@@ -11,6 +11,7 @@ from sql_tutor.sql.engine import QueryResult, SQLEngine
 from sql_tutor.storage.progress import ProgressStore
 from sql_tutor.tutor.hints import Hint
 from sql_tutor.tutor.orchestrator import TutorFeedback, TutorOrchestrator
+from sql_tutor.exercises.generator import ExerciseGenerator, ExerciseGenerationError
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,7 @@ class LearningSession:
         progress_store: ProgressStore,
         orchestrator: TutorOrchestrator | ExerciseSelector | None = None,
         tutor: TutorOrchestrator | None = None,
+        generator: ExerciseGenerator | None = None,
     ) -> None:
         self._external_engine: SQLEngine | None = None
 
@@ -133,6 +135,7 @@ class LearningSession:
         self.selector = selector
         self.progress_store = progress_store
         self.orchestrator = orchestrator or TutorOrchestrator(progress_store)
+        self.generator = generator
 
         self._skipped: set[str] = set()
         self._engine: SQLEngine | None = None
@@ -142,6 +145,7 @@ class LearningSession:
         self.hints_used = 0
         self._attempts = 0
         self._last_feedback: TutorFeedback | None = None
+        self.selected_concept: str | None = None
 
     @property
     def state(self) -> SessionState | None:
@@ -179,14 +183,43 @@ class LearningSession:
 
         return self.start()
 
+    def set_topic(self, concept: str | None) -> None:
+        """Set an explicit practice topic, or None for adaptive practice."""
+        if concept is None or not concept.strip():
+            self.selected_concept = None
+            return
+        topic = self.selector.curriculum.get_topic(concept)
+        if topic is None:
+            raise ValueError(f"Unknown curriculum topic: {concept}")
+        self.selected_concept = topic.title
+
     def next_exercise(self) -> Exercise | None:
         self._close_engine()
         self.current = None
 
-        exercise = self.selector.select_next(
-            self.progress_store.get_all_attempts(),
-            exclude_ids=self._skipped,
-        )
+        attempts = self.progress_store.get_all_attempts()
+        exercise = None
+
+        if self.generator is not None:
+            if self.selected_concept is not None:
+                concept, difficulty = self.selector.generation_target_for_concept(
+                    self.selected_concept, attempts
+                )
+            else:
+                concept, difficulty = self.selector.generation_target(attempts)
+            try:
+                exercise = self.generator.generate(concept, difficulty)
+                if self.repository.get(exercise.exercise_id) is None:
+                    self.repository.add(exercise)
+            except ExerciseGenerationError as error:
+                logger.warning("Generated exercise unavailable: %s", error)
+
+        if exercise is None:
+            exercise = self.selector.select_next(
+                attempts,
+                exclude_ids=self._skipped,
+                concept=self.selected_concept,
+            )
 
         self.failed_attempts = 0
         self.hints_used = 0

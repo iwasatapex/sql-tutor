@@ -16,7 +16,9 @@ from sql_tutor.llm.models import LLMRequest
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = (
-    "You write SQL exercises for a SQLite-based tutor. "
+    "You are a rigorous SQL curriculum author for a SQLite-based tutor. "
+    "Generate only the requested SQL concept, not a generic exercise. "
+    "Keep the schema, description, setup_sql, and expected_query consistent. "
     "Reply with a single JSON object and nothing else."
 )
 
@@ -33,7 +35,12 @@ Use exactly this JSON shape:
   "expected_query": "SELECT ...;"
 }
 Rules: SQLite dialect; setup_sql contains only CREATE TABLE and INSERT INTO, one statement per string;
-include 5 to 12 rows of realistic data; expected_query is one read-only SELECT that returns at least one row."""
+include 5 to 12 rows of realistic data; expected_query is one read-only SELECT that returns at least one row;
+the expected_query must reference only tables and columns created by setup_sql;
+the description must use the actual schema column names;
+for window-function concepts, use SQLite-supported OVER, PARTITION BY, ORDER BY, and frame syntax;
+for DDL/DML concepts, still provide a read-only learner task and a SELECT-based expected_query;
+difficulty must be exactly one of: beginner, intermediate, advanced (lowercase)."""
 
 _FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
 
@@ -162,7 +169,7 @@ class ExerciseGenerator:
             title=payload["title"],
             description=payload["description"],
             concept=payload["concept"],
-            difficulty=ExerciseDifficulty(payload["difficulty"]),
+            difficulty=ExerciseDifficulty(str(payload["difficulty"]).strip().lower()),
             schema=schema,
             expected_query=payload["expected_query"],
             setup_sql=tuple(setup_sql),

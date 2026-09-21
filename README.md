@@ -80,3 +80,19 @@ with SQLite `query_only`, a 2 second timeout, and a 10,000 row cap. Generated
 ## Layout
 
 See `docs/architecture.md`.
+
+## Ollama SQL models
+
+Run the browser tutor with the custom Granite model:
+
+```fish
+./scripts/run-ollama.fish granite
+```
+
+Or use Gemma:
+
+```fish
+./scripts/run-ollama.fish gemma
+```
+
+The script sets `SQL_TUTOR_LLM_PROVIDER=ollama`, selects the model, checks that Ollama is reachable, and starts the web tutor.

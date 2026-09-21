@@ -110,16 +110,53 @@ class ExerciseSelector:
 
         return tuple(progress)
 
+    def generation_target_for_concept(
+        self,
+        concept: str,
+        attempts: Sequence[Attempt],
+    ) -> tuple[str, ExerciseDifficulty]:
+        """Return a generation target for an explicitly selected topic."""
+        topic = self.curriculum.get_topic(concept)
+        if topic is None:
+            raise ValueError(f"Unknown curriculum topic: {concept}")
+        return (topic.title, self._target_difficulty(topic, attempts))
+
+    def generation_target(
+        self,
+        attempts: Sequence[Attempt],
+    ) -> tuple[str, ExerciseDifficulty]:
+        """Return the next concept and adaptive difficulty for generation."""
+        progress_items = self.topic_progress(attempts)
+        for progress in progress_items:
+            if not progress.is_complete:
+                return (
+                    progress.topic.title,
+                    self._target_difficulty(progress.topic, attempts),
+                )
+
+        # Once every topic is complete, continue with the least-mastered topic.
+        fallback = min(
+            progress_items,
+            key=lambda item: (item.mastery.accuracy, item.topic.order),
+        )
+        return (
+            fallback.topic.title,
+            self._target_difficulty(fallback.topic, attempts),
+        )
+
     def select_next(
         self,
         attempts: Sequence[Attempt],
         *,
         exclude_ids: Collection[str] = (),
+        concept: str | None = None,
     ) -> Exercise | None:
         solved_ids = {a.exercise_id for a in attempts if a.is_correct}
         unavailable = solved_ids | set(exclude_ids)
 
         for progress in self.topic_progress(attempts):
+            if concept is not None and progress.topic.title.upper() != concept.strip().upper():
+                continue
             if progress.is_complete:
                 continue
 

@@ -69,3 +69,17 @@ def test_generator_rejects_unsafe_query() -> None:
             concept="SELECT",
             difficulty=ExerciseDifficulty.BEGINNER,
         )
+
+
+def test_generator_normalizes_difficulty_case() -> None:
+    payload = valid_payload()
+    payload["difficulty"] = "Advanced"
+    provider = MockLLMProvider(response=json.dumps(payload))
+
+    generator = ExerciseGenerator(provider)
+    exercise = generator.generate(
+        concept="SELECT",
+        difficulty=ExerciseDifficulty.ADVANCED,
+    )
+
+    assert exercise.difficulty == ExerciseDifficulty.ADVANCED
