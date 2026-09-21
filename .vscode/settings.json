@@ -1,0 +1,6 @@
+{
+    "python.defaultInterpreterPath": "/home/amateur/miniconda3/envs/projects/bin/python",
+    "chat.tools.terminal.autoApprove": {
+        "conda": true
+    }
+}
