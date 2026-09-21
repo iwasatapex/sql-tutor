@@ -5,8 +5,8 @@ A local-first, model-agnostic adaptive SQL tutor. Standard library only.
 ## Quick start
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+conda activate projects
+python -m pip install -e ".[dev]"
 
 sql-tutor practice     # adaptive session (default command)
 sql-tutor web --open    # browser UI at http://127.0.0.1:8765
@@ -14,6 +14,10 @@ sql-tutor progress     # per-topic progress
 sql-tutor list --concept join
 pytest
 ```
+
+The `projects` Conda environment is the default development and runtime
+environment for this repository. If it is not active, use
+`conda run -n projects <command>` instead of the system Python.
 
 In a session, type SQL ending with `;` (multi-line is fine). Commands:
 `:hint`, `:schema`, `:skip`, `:help`, `:quit`. After two failed attempts a
