@@ -176,19 +176,10 @@ class ExerciseSelector:
             ]
 
             if allowed_types:
-                before = len(candidates)
                 candidates = [
                     e for e in candidates
                     if e.question_type.value in allowed_types
                 ]
-                if not candidates and before:
-                    # No exercise of the requested type -- fall back to any type
-                    # so the selector can still return something rather than
-                    # failing with "No exercises available".
-                    candidates = [
-                        e for e in self.repository.for_concept(progress.topic.title)
-                        if e.exercise_id not in unavailable
-                    ]
 
             if not candidates:
                 continue

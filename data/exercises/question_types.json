@@ -1,0 +1,25 @@
+[
+  {
+    "exercise_id": "debug-filtered-employees",
+    "title": "Fix a department filter",
+    "description": "The broken query returns employees from the wrong department. Correct it so it returns the name and salary of employees in department 1.",
+    "concept": "SELECT",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "tables": ["employees"],
+    "expected_query": "SELECT name, salary FROM employees WHERE department_id = 1;",
+    "question_type": "debug",
+    "broken_query": "SELECT name, salary FROM employees WHERE department_id = 2;"
+  },
+  {
+    "exercise_id": "predict-department-names",
+    "title": "Predict department names",
+    "description": "Read the query and predict its complete output, including the column header.",
+    "concept": "SELECT",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "tables": ["departments"],
+    "expected_query": "SELECT name FROM departments ORDER BY name;",
+    "question_type": "predict"
+  }
+]

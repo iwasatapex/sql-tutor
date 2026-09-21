@@ -94,8 +94,15 @@ def test_session_builds_database_before_reference_query_runs(
         store,
     )
 
+    session.set_question_type(exercise.question_type.value)
     assert session.start().current_exercise == exercise
-    outcome = session.submit(exercise.expected_query)
+
+    if exercise.question_type.value == "predict":
+        outcome = session.submit_prediction(session.expected_output())
+    elif exercise.question_type.value == "explain":
+        outcome = session.submit_explanation(exercise.reference_explanation)
+    else:
+        outcome = session.submit(exercise.expected_query)
 
     assert outcome.exercise_completed, outcome.feedback
     session.close()

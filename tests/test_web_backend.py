@@ -100,7 +100,7 @@ def test_unsupported_question_type_is_rejected(tmp_path: Path) -> None:
     app = make_app(tmp_path)
     try:
         with pytest.raises(ValueError, match="Unsupported question type"):
-            app.choose_question_type("explain")
+            app.choose_question_type("translate")
     finally:
         app.close()
 
@@ -230,6 +230,57 @@ def test_predict_empty_prediction_rejected(tmp_path: Path) -> None:
         app.close()
 
 
+def test_explain_correct_explanation(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    try:
+        app.choose_question_type("explain")
+        exercise_id = app.session.current.exercise_id
+
+        response = app.explain(app.session.current.reference_explanation)
+        assert response["feedback"]["is_correct"] is True
+        assert response["feedback"]["message"] == (
+            "Correct! Your explanation covered the key ideas."
+        )
+        assert response["reference_explanation"]
+        assert response["coverage"] >= 0.5
+
+        attempts = app.session.progress_store.get_attempts(exercise_id)
+        assert [attempt.is_correct for attempt in attempts] == [True]
+    finally:
+        app.close()
+
+
+def test_explain_incorrect_explanation_reports_missing_ideas(
+    tmp_path: Path,
+) -> None:
+    app = make_app(tmp_path)
+    try:
+        app.choose_question_type("explain")
+        exercise_id = app.session.current.exercise_id
+
+        response = app.explain("It reads rows from a table.")
+        assert response["feedback"]["is_correct"] is False
+        assert response["missing_terms"]
+        assert response["coverage"] < 0.5
+        assert response["reference_explanation"]
+        assert response["failed_attempts"] == 1
+
+        attempts = app.session.progress_store.get_attempts(exercise_id)
+        assert [attempt.is_correct for attempt in attempts] == [False]
+    finally:
+        app.close()
+
+
+def test_explain_empty_explanation_rejected(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    try:
+        app.choose_question_type("explain")
+        with pytest.raises(EmptySubmissionError, match="cannot be empty"):
+            app.explain("   ")
+    finally:
+        app.close()
+
+
 def test_no_exercises_state_is_explicit(tmp_path: Path) -> None:
     app = make_app(tmp_path)
     try:
@@ -258,6 +309,21 @@ def test_generate_applies_topic_and_difficulty(tmp_path: Path) -> None:
         assert payload["selected_difficulty"] == "beginner"
         assert payload["exercise"]["concept"].upper() == "SELECT"
         assert payload["exercise"]["difficulty"] == "beginner"
+    finally:
+        app.close()
+
+
+def test_api_routing_rejects_wrong_active_question_type(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    try:
+        with pytest.raises(ValueError, match="/api/predict"):
+            app.predict("name")
+        with pytest.raises(ValueError, match="/api/explain"):
+            app.explain("It selects names.")
+
+        app.choose_question_type("predict")
+        with pytest.raises(ValueError, match="/api/submit"):
+            app.submit("SELECT name FROM departments;")
     finally:
         app.close()
 
@@ -354,7 +420,7 @@ def test_http_error_paths_return_json(live_server: int) -> None:
     assert "Unknown difficulty" in bad_difficulty["error"]
 
     status, bad_type = post_json(
-        port, "/api/question-type", {"question_type": "explain"}
+        port, "/api/question-type", {"question_type": "translate"}
     )
     assert status == 400
     assert "Unsupported question type" in bad_type["error"]
@@ -433,6 +499,47 @@ def test_http_predict_endpoint(tmp_path: Path) -> None:
         status, body3 = post_json(port, "/api/predict", {"prediction": "   "})
         assert status == 400
         assert "cannot be empty" in body3["error"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+        app.close()
+
+
+def test_http_explain_endpoint(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    handler_cls = create_test_server(app)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler_cls)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+
+        # The app starts on a write exercise; switch to explain mode.
+        app.choose_question_type("explain")
+        exercise = app.session.current
+        assert exercise is not None
+        good = exercise.reference_explanation
+
+        status, body = post_json(port, "/api/explain", {"explanation": good})
+        assert status == 200
+        assert body["feedback"]["is_correct"] is True
+        assert body["reference_explanation"]
+        assert body["exercise"]["query"]
+
+        # A vague explanation is graded, not an error.
+        status, vague = post_json(
+            port, "/api/explain", {"explanation": "It reads rows."}
+        )
+        assert status == 200
+        assert vague["feedback"]["is_correct"] is False
+        assert vague["missing_terms"]
+
+        # An empty explanation is rejected.
+        status, empty = post_json(port, "/api/explain", {"explanation": "   "})
+        assert status == 400
+        assert "cannot be empty" in empty["error"]
     finally:
         server.shutdown()
         server.server_close()

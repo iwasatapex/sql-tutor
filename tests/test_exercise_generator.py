@@ -6,8 +6,18 @@ from sql_tutor.exercises.generator import (
     ExerciseGenerationError,
     ExerciseGenerator,
 )
-from sql_tutor.exercises.models import ExerciseDifficulty
+from sql_tutor.exercises.models import ExerciseDifficulty, QuestionType
 from sql_tutor.llm.mock import MockLLMProvider
+
+
+class RecordingProvider(MockLLMProvider):
+    def __init__(self, response: str) -> None:
+        super().__init__(response)
+        self.requests = []
+
+    def generate(self, request):
+        self.requests.append(request)
+        return super().generate(request)
 
 
 def valid_payload() -> dict:
@@ -83,3 +93,25 @@ def test_generator_normalizes_difficulty_case() -> None:
     )
 
     assert exercise.difficulty == ExerciseDifficulty.ADVANCED
+
+
+def test_generator_requests_and_enforces_question_type() -> None:
+    payload = valid_payload()
+    payload["question_type"] = "predict"
+    provider = RecordingProvider(json.dumps(payload))
+
+    exercise = ExerciseGenerator(provider).generate(
+        "SELECT", ExerciseDifficulty.BEGINNER, QuestionType.PREDICT
+    )
+
+    assert exercise.question_type == QuestionType.PREDICT
+    assert "question_type must be exactly 'predict'" in provider.requests[0].prompt
+
+
+def test_generator_rejects_wrong_requested_question_type() -> None:
+    provider = MockLLMProvider(response=json.dumps(valid_payload()))
+
+    with pytest.raises(ExerciseGenerationError, match="does not match"):
+        ExerciseGenerator(provider).generate(
+            "SELECT", ExerciseDifficulty.BEGINNER, QuestionType.PREDICT
+        )

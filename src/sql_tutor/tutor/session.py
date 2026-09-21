@@ -10,6 +10,7 @@ from sql_tutor.learning.selector import ExerciseSelector, TopicProgress
 from sql_tutor.sql.engine import QueryResult, SQLEngine
 from sql_tutor.storage.progress import ProgressStore
 from sql_tutor.tutor.hints import Hint
+from sql_tutor.tutor.explanation import ExplanationGrade, grade_explanation
 from sql_tutor.tutor.orchestrator import TutorFeedback, TutorOrchestrator
 from sql_tutor.tutor.prediction import format_query_result, prediction_matches
 from sql_tutor.exercises.generator import ExerciseGenerator, ExerciseGenerationError
@@ -37,6 +38,10 @@ class NoExercisesAvailableError(NoActiveExerciseError, ValueError):
 
 class ExerciseSetupError(RuntimeError):
     """Raised when an exercise's database cannot be built."""
+
+
+class QuestionTypeMismatchError(ValueError):
+    """Raised when an answer endpoint does not match the active exercise."""
 
 
 @dataclass(frozen=True)
@@ -83,6 +88,25 @@ class PredictionOutcome:
 
     feedback: TutorFeedback
     actual_output: str
+    failed_attempts: int
+    exercise_completed: bool
+
+    @property
+    def is_correct(self) -> bool:
+        return self.feedback.is_correct
+
+    @property
+    def message(self) -> str:
+        return self.feedback.message
+
+
+@dataclass(frozen=True)
+class ExplanationOutcome:
+    """Result of grading an Explain SQL answer."""
+
+    feedback: TutorFeedback
+    grade: ExplanationGrade
+    reference_explanation: str
     failed_attempts: int
     exercise_completed: bool
 
@@ -234,7 +258,7 @@ class LearningSession:
         self.selected_difficulty = ExerciseDifficulty(normalized)
 
     def set_question_type(self, question_type: str | None) -> None:
-        """Set how the learner practices; write, debug, and predict are supported."""
+        """Set how the learner practices; all four question types are supported."""
         normalized = (question_type or "write").strip().lower()
         if normalized in {"write", "write sql", "write_sql"}:
             self.selected_question_type = "write"
@@ -245,9 +269,12 @@ class LearningSession:
         if normalized in {"predict", "predict output", "predict_output"}:
             self.selected_question_type = "predict"
             return
+        if normalized in {"explain", "explain sql", "explain_sql"}:
+            self.selected_question_type = "explain"
+            return
         raise ValueError(
             f"Unsupported question type: {question_type!r}. "
-            "Only 'write', 'debug', and 'predict' question types are currently supported."
+            "Use 'write', 'debug', 'predict', or 'explain'."
         )
 
     def next_exercise(self) -> Exercise | None:
@@ -270,7 +297,9 @@ class LearningSession:
                 )
             difficulty = self.selected_difficulty or adaptive_difficulty
             try:
-                exercise = self.generator.generate(concept, difficulty)
+                exercise = self.generator.generate(
+                    concept, difficulty, self.selected_question_type
+                )
                 if self.repository.get(exercise.exercise_id) is None:
                     self.repository.add(exercise)
             except ExerciseGenerationError as error:
@@ -302,6 +331,7 @@ class LearningSession:
         hint_level: int | None = None,
     ) -> SubmissionOutcome:
         exercise, engine = self._require_active()
+        self._require_question_type(exercise, "write", "debug")
 
         feedback = self.orchestrator.submit_query(
             exercise,
@@ -362,6 +392,7 @@ class LearningSession:
             raise ValueError("Prediction cannot be empty")
 
         exercise, _ = self._require_active()
+        self._require_question_type(exercise, "predict")
         actual_output = self.expected_output()
         is_correct = prediction_matches(prediction, actual_output)
         feedback = TutorFeedback(
@@ -394,6 +425,59 @@ class LearningSession:
             actual_output=actual_output,
             failed_attempts=self.failed_attempts,
             exercise_completed=is_correct,
+        )
+
+    def submit_explanation(self, explanation: str) -> ExplanationOutcome:
+        """Grade a natural-language explanation of the active exercise.
+
+        The answer is compared with the exercise's reference explanation
+        and the attempt is recorded like any other answer, so explain
+        practice also feeds topic progress and mastery.
+        """
+        if not str(explanation or "").strip():
+            raise ValueError("Explanation cannot be empty")
+
+        exercise, _ = self._require_active()
+        self._require_question_type(exercise, "explain")
+        reference = exercise.reference_explanation
+        grade = grade_explanation(explanation, reference)
+
+        if not grade.is_gradable:
+            raise ValueError(
+                f"Exercise '{exercise.exercise_id}' has no reference "
+                "explanation to grade against"
+            )
+
+        feedback = TutorFeedback(
+            is_correct=grade.is_correct,
+            message=(
+                "Correct! Your explanation covered the key ideas."
+                if grade.is_correct
+                else "Not quite. Your explanation missed some key ideas."
+            ),
+            reason=(
+                ""
+                if grade.is_correct
+                else f"Missing ideas: {grade.missing_terms}"
+            ),
+        )
+
+        self._attempts += 1
+
+        if not grade.is_correct:
+            self.failed_attempts += 1
+
+        self._last_feedback = feedback
+        self._record_attempt(
+            exercise, explanation, grade.is_correct, self.hints_used or None
+        )
+
+        return ExplanationOutcome(
+            feedback=feedback,
+            grade=grade,
+            reference_explanation=reference,
+            failed_attempts=self.failed_attempts,
+            exercise_completed=grade.is_correct,
         )
 
     def request_hint(self) -> Hint:
@@ -482,6 +566,18 @@ class LearningSession:
             raise NoActiveExerciseError("No active exercise")
 
         return self.current, self._engine
+
+    @staticmethod
+    def _require_question_type(exercise: Exercise, *allowed: str) -> None:
+        if exercise.question_type.value not in allowed:
+            endpoint = "/api/submit" if set(allowed) == {"write", "debug"} else (
+                "/api/predict" if allowed == ("predict",) else "/api/explain"
+            )
+            expected = " or ".join(allowed)
+            raise QuestionTypeMismatchError(
+                f"{endpoint} accepts {expected} exercises, but the active "
+                f"exercise is {exercise.question_type.value}"
+            )
 
     def _close_engine(self) -> None:
         if self._engine is not None and self._owns_engine:

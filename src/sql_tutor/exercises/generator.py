@@ -30,9 +30,11 @@ _SYSTEM_PROMPT = (
     "features such as strftime(), window functions with OVER/PARTITION BY, "
     "and recursive CTEs. "
     "Keep the schema, description, setup_sql, expected_query, question_type, "
-    "and broken_query consistent. "
+    "broken_query, and explanation consistent. "
     "For debug exercises, broken_query must be a genuinely buggy query that "
     "the expected_query fixes. "
+    "For explain exercises, explanation must state what the expected_query "
+    "returns and which clauses, tables and columns it uses. "
     "Reply with a single JSON object and nothing else."
 )
 
@@ -48,7 +50,8 @@ Use exactly this JSON shape:
   "setup_sql": ["CREATE TABLE ...", "INSERT INTO ... VALUES (...)"],
   "expected_query": "SELECT ...;",
   "question_type": "write",
-  "broken_query": ""
+  "broken_query": "",
+  "explanation": ""
 }
 Rules: SQLite dialect ONLY (no ROW_COUNT(), NOW(), DATE_FORMAT(), or other
 non-SQLite functions); setup_sql contains only CREATE TABLE and INSERT INTO,
@@ -70,8 +73,13 @@ question_type must be exactly one of: write, debug, predict, explain
 for debug exercises, broken_query is a non-empty SQL query that contains
 a real bug (wrong column, wrong operator, missing WHERE, wrong JOIN, etc.)
 that the learner must fix; the expected_query is the correct version;
-for write, predict, and explain exercises, broken_query must be an empty
-string."""
+for explain exercises, explanation is a non-empty natural-language answer
+that names the tables, columns, filtering, grouping and ordering the
+expected_query uses; learners are graded on how many of those ideas their
+own explanation mentions, so be specific rather than vague;
+for write, debug and predict exercises, explanation must be an empty
+string; for write, predict and explain exercises, broken_query must be an
+empty string."""
 
 _FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
 _MAX_RESPONSE_CHARS = 100_000
@@ -100,13 +108,24 @@ class ExerciseGenerator:
         self,
         concept: str,
         difficulty: ExerciseDifficulty,
+        question_type: QuestionType | str = QuestionType.WRITE,
     ) -> Exercise:
+        normalized_type = normalize_question_type_label(
+            question_type.value if isinstance(question_type, QuestionType) else question_type
+        )
+        if normalized_type is None:
+            raise ExerciseGenerationError(
+                "question_type must be one of: write, debug, predict, explain"
+            )
+        requested_type = QuestionType(normalized_type)
         last_error: Exception | None = None
         feedback = ""
 
         for attempt in range(1, self.max_attempts + 1):
             try:
-                return self._generate_once(concept, difficulty, feedback)
+                return self._generate_once(
+                    concept, difficulty, requested_type, feedback
+                )
             except (ExerciseGenerationError, LLMProviderError) as error:
                 last_error = error
                 feedback = (
@@ -131,13 +150,15 @@ class ExerciseGenerator:
         self,
         concept: str,
         difficulty: ExerciseDifficulty,
+        question_type: QuestionType,
         feedback: str,
     ) -> Exercise:
         request = LLMRequest(
             system_prompt=_SYSTEM_PROMPT,
             prompt=(
                 f"Generate a {difficulty.value} SQL exercise "
-                f"about {concept}.\n{_FORMAT_SPEC}{feedback}"
+                f"about {concept}. The question_type must be exactly "
+                f"'{question_type.value}'.\n{_FORMAT_SPEC}{feedback}"
             ),
             json_mode=True,
             max_tokens=2048,
@@ -152,6 +173,13 @@ class ExerciseGenerator:
             raise ExerciseGenerationError(
                 f"Invalid generated exercise: {error}"
             ) from error
+
+        if exercise.question_type != question_type:
+            raise ExerciseGenerationError(
+                "Generated question_type "
+                f"'{exercise.question_type.value}' does not match requested "
+                f"'{question_type.value}'"
+            )
 
         validation = (
             verify_exercise(exercise)
@@ -241,4 +269,5 @@ class ExerciseGenerator:
                 or "write"
             ),
             broken_query=payload.get("broken_query", ""),
+            explanation=payload.get("explanation", ""),
         )

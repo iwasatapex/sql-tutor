@@ -79,6 +79,13 @@ def test_run_check_clears_editor_for_next_question() -> None:
     assert "$('query').value=''" in HTML
 
 
+def test_next_and_skip_apply_full_state_for_question_type_panels() -> None:
+    action_start = HTML.index("async function action(")
+    action_end = HTML.index("$('topic').onchange", action_start)
+    action = HTML[action_start:action_end]
+    assert "applyState(await api(path" in action
+
+
 def test_topic_difficulty_and_type_controls_are_wired() -> None:
     assert "$('topic').onchange=chooseTopic" in HTML
     assert "$('difficulty').onchange=chooseDifficulty" in HTML
@@ -91,11 +98,12 @@ def test_topic_difficulty_and_type_controls_are_wired() -> None:
     assert "/api/config" in HTML
 
 
-def test_write_debug_and_predict_are_offered_as_supported() -> None:
-    assert 'value="write"' in HTML
-    assert 'value="debug"' in HTML
-    assert 'value="predict"' in HTML
-    assert "not supported yet" in HTML
+def test_all_question_types_are_offered_as_supported() -> None:
+    for question_type in ("write", "debug", "predict", "explain"):
+        assert f'value="{question_type}"' in HTML
+
+    assert "not supported yet" not in HTML
+    assert "disabled>" not in HTML
     assert 'id="provider-info"' in HTML
 
 
@@ -108,6 +116,27 @@ def test_predict_panel_and_endpoint_are_wired() -> None:
     assert "renderPredictPanel" in HTML
     assert "checkPrediction" in HTML
     assert "actual_output" in HTML
+
+
+def test_explain_panel_and_endpoint_are_wired() -> None:
+    assert 'id="explain-panel"' in HTML
+    assert 'id="explain-query-display"' in HTML
+    assert 'id="explanation"' in HTML
+    assert 'id="check-explanation"' in HTML
+    assert "/api/explain" in HTML
+    assert "renderExplainPanel" in HTML
+    assert "checkExplanation" in HTML
+    assert "reference_explanation" in HTML
+    # The answer is revealed only after grading, never up front.
+    assert "Model answer" in HTML
+
+
+def test_read_only_question_types_receive_the_query() -> None:
+    import sql_tutor.web as web
+
+    assert web._READ_ONLY_QUESTION_TYPES == ("predict", "explain")
+    # Only predict/explain payloads carry the query to read.
+    assert "e.query||''" in HTML
 
 
 def test_no_duplicate_element_ids() -> None:

@@ -5,6 +5,7 @@ import pytest
 from sql_tutor.exercises.models import (
     Exercise,
     ExerciseDifficulty,
+    QuestionType,
     TableColumn,
     TableSchema,
 )
@@ -18,7 +19,12 @@ I = ExerciseDifficulty.INTERMEDIATE
 A = ExerciseDifficulty.ADVANCED
 
 
-def make(exercise_id: str, concept: str, difficulty: ExerciseDifficulty) -> Exercise:
+def make(
+    exercise_id: str,
+    concept: str,
+    difficulty: ExerciseDifficulty,
+    question_type: QuestionType = QuestionType.WRITE,
+) -> Exercise:
     return Exercise(
         exercise_id=exercise_id,
         title=exercise_id,
@@ -27,6 +33,7 @@ def make(exercise_id: str, concept: str, difficulty: ExerciseDifficulty) -> Exer
         difficulty=difficulty,
         schema=(TableSchema("t", (TableColumn("id", "INTEGER"),)),),
         expected_query="SELECT id FROM t;",
+        question_type=question_type,
     )
 
 
@@ -137,6 +144,23 @@ def test_explicit_difficulty_falls_back_to_nearest_level(
     assert exercise is not None
     assert exercise.concept == "WHERE"
     assert exercise.difficulty == B
+
+
+def test_requested_question_type_never_falls_back(selector: ExerciseSelector) -> None:
+    assert selector.select_next([], question_type="predict") is None
+
+
+def test_requested_question_type_selects_matching_exercise() -> None:
+    repository = ExerciseRepository([
+        make("write", "SELECT", B),
+        make("predict", "SELECT", B, QuestionType.PREDICT),
+    ])
+    selector = ExerciseSelector(Curriculum.default(), repository)
+
+    exercise = selector.select_next([], question_type="predict")
+
+    assert exercise is not None
+    assert exercise.question_type == QuestionType.PREDICT
 
 
 

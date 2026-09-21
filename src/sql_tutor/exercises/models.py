@@ -41,6 +41,7 @@ class Exercise:
     setup_sql: tuple[str, ...] = ()
     question_type: QuestionType = QuestionType.WRITE
     broken_query: str = ""
+    explanation: str = ""
 
     def __post_init__(self) -> None:
         if not self.exercise_id.strip():
@@ -71,3 +72,18 @@ class Exercise:
             raise ValueError(
                 "Debug exercises must include a non-empty broken_query"
             )
+
+        if self.question_type == QuestionType.EXPLAIN and not self.explanation.strip():
+            raise ValueError(
+                "Explain exercises must include a non-empty explanation"
+            )
+
+    @property
+    def reference_explanation(self) -> str:
+        """Model answer used to grade an Explain SQL answer.
+
+        Authored exercises can provide a dedicated ``explanation``. Any
+        other exercise falls back to its ``description``, which already
+        states in prose what the reference query returns.
+        """
+        return self.explanation.strip() or self.description.strip()

@@ -65,13 +65,13 @@ def test_progress_persists_between_runs(tmp_path: Path) -> None:
 
     output = run(tmp_path, ["progress"])
 
-    assert "SELECT    1/4 solved  [in progress]" in output
+    assert "SELECT    1/7 solved  [in progress]" in output
 
 
 def test_list_filters_by_concept(tmp_path: Path) -> None:
     output = run(tmp_path, ["list", "--concept", "join"])
 
-    assert output.count("\n") == 4
+    assert output.count("\n") == 5
     assert "join-01" in output
 
 

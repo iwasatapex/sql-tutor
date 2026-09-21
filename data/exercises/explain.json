@@ -1,0 +1,74 @@
+[
+  {
+    "exercise_id": "explain-select",
+    "title": "Explain a filtered selection",
+    "description": "Read the query and explain in your own words what it returns.",
+    "concept": "SELECT",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "tables": ["employees"],
+    "expected_query": "SELECT name, salary FROM employees WHERE department_id = 1 ORDER BY salary DESC;",
+    "question_type": "explain",
+    "explanation": "It reads the employees table and returns the name and salary of every employee whose department_id is 1. The WHERE clause filters the rows first, the SELECT list projects only those two columns, and ORDER BY salary DESC sorts the surviving rows from the highest salary to the lowest."
+  },
+  {
+    "exercise_id": "explain-where",
+    "title": "Explain a compound filter",
+    "description": "Read the query and explain in your own words what it returns.",
+    "concept": "WHERE",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "tables": ["employees"],
+    "expected_query": "SELECT name, hire_year FROM employees WHERE manager_id IS NULL AND salary > 60000;",
+    "question_type": "explain",
+    "explanation": "It returns the name and hire_year of employees who have no manager (manager_id IS NULL) and who earn more than 60000. Both conditions in the WHERE clause must be true for a row to be kept, because the conditions are joined with AND."
+  },
+  {
+    "exercise_id": "explain-order-by",
+    "title": "Explain a sorted top-two list",
+    "description": "Read the query and explain in your own words what it returns.",
+    "concept": "ORDER BY",
+    "difficulty": "beginner",
+    "dataset": "company",
+    "tables": ["employees"],
+    "expected_query": "SELECT name FROM employees ORDER BY hire_year ASC LIMIT 2;",
+    "question_type": "explain",
+    "explanation": "It returns the name of the two employees hired earliest, not the whole team. ORDER BY hire_year ASC sorts the employee rows by their hire year, oldest first, and LIMIT 2 keeps only the first two rows of that sorted result."
+  },
+  {
+    "exercise_id": "explain-group-by",
+    "title": "Explain grouped averages",
+    "description": "Read the query and explain in your own words what it returns.",
+    "concept": "GROUP BY",
+    "difficulty": "intermediate",
+    "dataset": "company",
+    "tables": ["employees"],
+    "expected_query": "SELECT department_id, AVG(salary) AS avg_salary FROM employees GROUP BY department_id HAVING AVG(salary) > 60000;",
+    "question_type": "explain",
+    "explanation": "It groups the employees rows by department_id and computes the average salary of each group as avg_salary, then returns department_id and avg_salary for each group. The HAVING clause filters the groups after aggregation, so only departments whose average salary is above 60000 appear. HAVING is used instead of WHERE because the condition is about an aggregate value."
+  },
+  {
+    "exercise_id": "explain-join",
+    "title": "Explain a join with a count",
+    "description": "Read the query and explain in your own words what it returns.",
+    "concept": "JOIN",
+    "difficulty": "intermediate",
+    "dataset": "shop",
+    "tables": ["customers", "orders"],
+    "expected_query": "SELECT c.name AS customer_name, COUNT(o.id) AS order_count FROM customers c JOIN orders o ON o.customer_id = c.id GROUP BY c.id, c.name ORDER BY order_count DESC;",
+    "question_type": "explain",
+    "explanation": "It returns each customer name with the number of orders they placed, most orders first. The join matches each order to the customer who placed it, and the rows are grouped per customer so COUNT(o.id) becomes that customer's order_count."
+  },
+  {
+    "exercise_id": "explain-subquery",
+    "title": "Explain a comparison subquery",
+    "description": "Read the query and explain in your own words what it returns.",
+    "concept": "SUBQUERY",
+    "difficulty": "advanced",
+    "dataset": "shop",
+    "tables": ["products"],
+    "expected_query": "SELECT name FROM products WHERE price > (SELECT AVG(price) FROM products);",
+    "question_type": "explain",
+    "explanation": "The inner query runs first and computes the average price of all products as a single value. The outer query uses that value in its WHERE clause and returns the products priced above it."
+  }
+]
