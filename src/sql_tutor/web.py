@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from dataclasses import replace
 from urllib.parse import urlparse
 
 from sql_tutor.config import Settings
@@ -14,6 +16,7 @@ from sql_tutor.learning.curriculum import Curriculum
 from sql_tutor.learning.selector import ExerciseSelector
 from sql_tutor.llm.base import LLMProviderError
 from sql_tutor.llm.factory import create_provider
+from sql_tutor.llm.ollama import list_models
 from sql_tutor.storage.progress import ProgressStore
 from sql_tutor.tutor.orchestrator import TutorOrchestrator
 from sql_tutor.tutor.session import (
@@ -45,7 +48,7 @@ HTML = r'''<!doctype html>
 </head>
 <body><main class="app">
 <header class="top"><div><div class="brand">SQL <span>Tutor</span></div><div class="sub">Adaptive practice • local-first • model agnostic</div></div><nav class="nav" aria-label="Primary"><a class="active" href="#practice">Practice</a><a href="#progress-panel">Progress</a><a href="#resources">Resources</a><a href="#settings">Settings</a></nav><div class="top-right"><div class="pill" id="status">Ready</div><div class="avatar">A</div></div></header>
-<div class="grid" id="practice"><aside class="side"><section class="panel"><h2>Practice setup</h2><label class="label" for="topic">Topic</label><select id="topic" class="selector"><option value="">Adaptive (all topics)</option></select><div class="sub">Choose a SQL topic to practice.</div><label class="label" for="question-type">Question type</label><select id="question-type" class="selector"><option value="write">Write SQL</option><option value="debug">Debug SQL</option><option value="predict">Predict output</option><option value="explain">Explain SQL</option></select><div class="sub">Write SQL, fix buggy queries, predict output, or explain a query.</div><label class="label" for="difficulty">Difficulty</label><select id="difficulty" class="selector"><option value="adaptive">Adaptive</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select><div class="sub">Adjust the challenge level.</div><button class="primary" id="generate">⟳ Generate new question</button></section><section class="panel"><h2>Session</h2><div class="metric"><span class="label">Attempts</span><strong id="attempts">0</strong></div><div class="metric"><span class="label">Correct</span><strong id="correct">0</strong></div><div class="metric"><span class="label">Accuracy</span><strong id="accuracy">0%</strong></div><div class="metric"><span class="label">Failed</span><strong id="failed">0</strong></div><div class="metric"><span class="label">Hints used</span><strong id="hints">0</strong></div><div class="actions"><button id="skip">Skip exercise</button><button id="next">Next exercise</button></div></section></aside><section class="panel"><div class="exercise-topline"><span class="pill">Practice workspace</span><span class="sub">Question-based learning</span></div><div id="exercise"><div class="empty">Loading exercise…</div></div><div id="debug-panel" class="debug-panel" style="display:none"><div class="debug-header"><h2>Broken query</h2><button id="copy-broken" class="link-btn">Copy to editor</button></div><pre><code id="broken-query-display"></code></pre><div class="sub">Find the bug and write the corrected query below.</div></div><div id="predict-panel" class="predict-panel" style="display:none"><div class="predict-header"><h2>Predict the output</h2><div class="sub">What does this query return? Write one line per row with columns separated by |; the first line is the column names.</div></div><div class="query-display"><pre id="predict-query-display"></pre></div><label for="prediction"><strong>Your predicted output</strong></label><textarea id="prediction" class="editor" spellcheck="false" placeholder="column1 | column2&#10;val1   | val2&#10;..."></textarea><div class="actions"><button class="primary" id="check-prediction">Check prediction</button></div></div><div id="explain-panel" class="explain-panel" style="display:none"><div class="explain-header"><h2>Explain this query</h2><div class="sub">Describe in your own words what the query returns and how it gets there. Mention the tables, columns and clauses it uses.</div></div><div class="query-display"><pre id="explain-query-display"></pre></div><label for="explanation"><strong>Your explanation</strong></label><textarea id="explanation" class="editor" spellcheck="true" placeholder="This query ..."></textarea><div class="actions"><button class="primary" id="check-explanation">Check explanation</button></div></div><label for="query"><strong>Your SQL</strong></label><textarea id="query" class="editor" spellcheck="false" placeholder="SELECT ...;"></textarea><div class="actions"><button class="primary" id="submit">Run & check</button><button id="hint">Get hint</button><button id="schema">Show schema</button></div><div id="feedback"></div><div class="footer">Your queries are evaluated locally. Use semicolon-terminated SELECT/WITH statements.</div></section><aside class="side right-column"><section class="panel" id="progress-panel"><h2>Learning progress</h2><div id="progress-content">Loading…</div></section><section class="panel"><h2>Recent performance</h2><div class="metric"><span class="label">Correct answers</span><strong id="recent-correct">0</strong></div><div class="metric"><span class="label">Incorrect answers</span><strong id="recent-failed">0</strong></div><div class="metric"><span class="label">Accuracy</span><strong id="recent-accuracy">0%</strong></div><div class="sub">Your session performance updates after each submission.</div></section></aside></div><section class="panel" id="resources"><h2>Resources</h2><div class="sub">Keyboard: Ctrl/Cmd+Enter submits the SQL in the editor, or checks the prediction or explanation. CLI commands: :hint, :schema, :skip, :help, :quit. Learner SQL must be a single SELECT/WITH statement; row order is only compared when the reference query uses ORDER BY.</div></section><section class="panel" id="settings"><h2>Settings</h2><div class="sub" id="provider-info">Model backend: loading…</div><div class="sub">Difficulty and topic selections are sent to the backend and affect the next exercise. Write SQL, Debug SQL, Predict output, and Explain SQL are all supported.</div></section></main>
+<div class="grid" id="practice"><aside class="side"><section class="panel"><h2>Practice setup</h2><label class="label" for="topic">Topic</label><select id="topic" class="selector"><option value="">Adaptive (all topics)</option></select><div class="sub">Choose a SQL topic to practice.</div><label class="label" for="question-type">Question type</label><select id="question-type" class="selector"><option value="write">Write SQL</option><option value="debug">Debug SQL</option><option value="predict">Predict output</option><option value="explain">Explain SQL</option></select><div class="sub">Write SQL, fix buggy queries, predict output, or explain a query.</div><label class="label" for="difficulty">Difficulty</label><select id="difficulty" class="selector"><option value="adaptive">Adaptive</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select><div class="sub">Adjust the challenge level.</div><button class="primary" id="generate">⟳ Generate new question</button></section><section class="panel"><h2>Session</h2><div class="metric"><span class="label">Attempts</span><strong id="attempts">0</strong></div><div class="metric"><span class="label">Correct</span><strong id="correct">0</strong></div><div class="metric"><span class="label">Accuracy</span><strong id="accuracy">0%</strong></div><div class="metric"><span class="label">Failed</span><strong id="failed">0</strong></div><div class="metric"><span class="label">Hints used</span><strong id="hints">0</strong></div><div class="actions"><button id="skip">Skip exercise</button><button id="next">Next exercise</button></div></section></aside><section class="panel"><div class="exercise-topline"><span class="pill">Practice workspace</span><span class="sub">Question-based learning</span></div><div id="exercise"><div class="empty">Loading exercise…</div></div><div id="debug-panel" class="debug-panel" style="display:none"><div class="debug-header"><h2>Broken query</h2><button id="copy-broken" class="link-btn">Copy to editor</button></div><pre><code id="broken-query-display"></code></pre><div class="sub">Find the bug and write the corrected query below.</div></div><div id="predict-panel" class="predict-panel" style="display:none"><div class="predict-header"><h2>Predict the output</h2><div class="sub">What does this query return? Write one line per row with columns separated by |; the first line is the column names.</div></div><div class="query-display"><pre id="predict-query-display"></pre></div><label for="prediction"><strong>Your predicted output</strong></label><textarea id="prediction" class="editor" spellcheck="false" placeholder="column1 | column2&#10;val1   | val2&#10;..."></textarea><div class="actions"><button class="primary" id="check-prediction">Check prediction</button></div></div><div id="explain-panel" class="explain-panel" style="display:none"><div class="explain-header"><h2>Explain this query</h2><div class="sub">Describe in your own words what the query returns and how it gets there. Mention the tables, columns and clauses it uses.</div></div><div class="query-display"><pre id="explain-query-display"></pre></div><label for="explanation"><strong>Your explanation</strong></label><textarea id="explanation" class="editor" spellcheck="true" placeholder="This query ..."></textarea><div class="actions"><button class="primary" id="check-explanation">Check explanation</button></div></div><label for="query"><strong>Your SQL</strong></label><textarea id="query" class="editor" spellcheck="false" placeholder="SELECT ...;"></textarea><div class="actions"><button class="primary" id="submit">Run & check</button><button id="hint">Get hint</button><button id="schema">Show schema</button></div><div id="feedback"></div><div class="footer">Your queries are evaluated locally. Use semicolon-terminated SELECT/WITH statements.</div></section><aside class="side right-column"><section class="panel" id="progress-panel"><h2>Learning progress</h2><div id="progress-content">Loading…</div></section><section class="panel"><h2>Recent performance</h2><div class="metric"><span class="label">Correct answers</span><strong id="recent-correct">0</strong></div><div class="metric"><span class="label">Incorrect answers</span><strong id="recent-failed">0</strong></div><div class="metric"><span class="label">Accuracy</span><strong id="recent-accuracy">0%</strong></div><div class="sub">Your session performance updates after each submission.</div></section></aside></div><section class="panel" id="resources"><h2>Resources</h2><div class="sub">Keyboard: Ctrl/Cmd+Enter submits the SQL in the editor, or checks the prediction or explanation. CLI commands: :hint, :schema, :skip, :help, :quit. Learner SQL must be a single SELECT/WITH statement; row order is only compared when the reference query uses ORDER BY.</div></section><section class="panel" id="settings"><h2>Settings</h2><label class="label" for="model">Local Ollama model</label><select id="model" class="selector"><option value="">Loading models…</option></select><div class="sub" id="provider-info">Local Ollama: loading…</div><div class="sub">Choose an installed Ollama model. Exercise generation and optional hints use it; SQL grading remains local.</div></section></main>
 <script>
 const $=id=>document.getElementById(id);let state=null;let submitInFlight=false;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -164,11 +167,12 @@ submitInFlight=false;
 $('check-explanation').disabled=false;
 }
 }
-function setBusy(busy){['generate','skip','next','hint','schema','topic','question-type','difficulty'].forEach(id=>{const el=$(id);if(el)el.disabled=busy})}
+function setBusy(busy){['generate','skip','next','hint','schema','topic','question-type','difficulty','model'].forEach(id=>{const el=$(id);if(el)el.disabled=busy})}
 function requestBusy(){return submitInFlight}
-async function loadConfig(){try{const cfg=await api('/api/config');$('provider-info').textContent='Model backend: '+cfg.provider+(cfg.model?' ('+cfg.model+')':' (default mock)')+' · Question types: '+cfg.question_types.join(', ')}catch(e){$('provider-info').textContent='Model backend: unavailable'}}
+async function loadConfig(){try{const cfg=await api('/api/config');const model=$('model');model.innerHTML='';for(const name of cfg.models||[]){const option=document.createElement('option');option.value=name;option.textContent=name;model.appendChild(option)}if(cfg.model)model.value=cfg.model;$('provider-info').textContent='Local Ollama'+(cfg.model?' ('+cfg.model+')':' (choose a model)')+' · Question types: '+cfg.question_types.join(', ')}catch(e){$('provider-info').textContent='Local Ollama unavailable: '+e.message}}
 async function action(path,opts={}){const throwOnError=!!opts.throwOnError;if(submitInFlight&&!throwOnError)return;setBusy(true);try{applyState(await api(path,{method:'POST'}));$('query').value='';await refreshProgress();$('status').textContent='Ready'}catch(e){$('status').textContent=e.message;if(throwOnError)throw e}finally{setBusy(false)}}
 $('topic').onchange=chooseTopic;$('difficulty').onchange=chooseDifficulty;$('question-type').onchange=chooseQuestionType;$('generate').onclick=generate;$('submit').onclick=submit;$('hint').onclick=async()=>{try{const d=await api('/api/hint',{method:'POST'});$('feedback').innerHTML=`<div class="feedback"><div class="hint">Hint: ${esc(d.hint)}</div></div>`;state.hints_used=d.hints_used;renderStats()}catch(e){$('status').textContent=e.message}};$('schema').onclick=()=>{const panel=document.querySelector('.schema');if(!panel){$('status').textContent='No schema to show yet';return}panel.scrollIntoView({behavior:'smooth',block:'nearest'});panel.classList.remove('schema-flash');void panel.offsetWidth;panel.classList.add('schema-flash')};$('skip').onclick=()=>action('/api/skip');$('next').onclick=()=>action('/api/next');document.querySelectorAll('.nav a').forEach(a=>{a.addEventListener('click',()=>{document.querySelectorAll('.nav a').forEach(o=>o.classList.remove('active'));a.classList.add('active')})});$('query').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')submit()});$('check-explanation').onclick=checkExplanation;$('explanation').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')checkExplanation()});load();
+ $('model').onchange=async()=>{if(!$('model').value)return;setBusy(true);try{applyState(await api('/api/model',{method:'POST',body:JSON.stringify({model:$('model').value})}));$('status').textContent='Using '+$('model').value;await loadConfig()}catch(e){$('status').textContent=e.message}finally{setBusy(false)}};
 </script></body></html>'''
 
 
@@ -209,11 +213,19 @@ _READ_ONLY_QUESTION_TYPES = ("predict", "explain")
 class TutorWebApp:
     def __init__(self, settings: Settings):
         self.settings = settings
+        if settings.llm_provider not in {"ollama", "mock"}:
+            raise LLMProviderError(
+                "The web UI supports local Ollama only."
+            )
+        if settings.llm_base_url and urlparse(settings.llm_base_url).hostname not in {
+            "localhost", "127.0.0.1", "::1"
+        }:
+            raise LLMProviderError(
+                "Ollama must use a local base URL (localhost, 127.0.0.1, or ::1)."
+            )
         self.repository = ExerciseRepository.from_directory(settings.data_dir)
         self.store = ProgressStore(str(settings.database_path))
-        provider = None
-        if settings.llm_provider != "mock":
-            provider = create_provider(settings)
+        provider = create_provider(settings) if settings.llm_model else None
         self.curriculum = Curriculum.default()
         self.session = LearningSession(
             repository=self.repository,
@@ -236,11 +248,39 @@ class TutorWebApp:
         self.store.close()
 
     def describe(self):
+        models = (
+            list_models(
+                self.settings.llm_base_url or "http://127.0.0.1:11434"
+            )
+            if self.settings.llm_provider == "ollama"
+            else ()
+        )
         return {
             "provider": self.settings.llm_provider,
             "model": self.settings.llm_model,
+            "models": models,
             "question_types": list(_SUPPORTED_QUESTION_TYPES),
         }
+
+    def choose_model(self, model: str):
+        models = list_models(
+            self.settings.llm_base_url or "http://127.0.0.1:11434"
+        )
+        if model not in models:
+            raise ValueError(f"Ollama model is not installed: {model}")
+        self.settings = replace(self.settings, llm_model=model)
+        provider = create_provider(self.settings)
+        self.session.orchestrator = TutorOrchestrator(
+            progress_store=self.store,
+            llm_provider=provider,
+        )
+        self.session.generator = ExerciseGenerator(
+            provider, max_attempts=2, verify=True
+        )
+        exercise = self.session.next_exercise()
+        if exercise is None:
+            raise NoExercisesAvailableError("No exercises available")
+        return self._state_or_raise()
 
     def state(self):
         with self.lock:
@@ -440,6 +480,11 @@ def _feedback_payload(feedback):
 
 
 def serve(settings: Settings, host="127.0.0.1", port=8765, open_browser=False):
+    if host not in {"127.0.0.1", "localhost", "::1"} and not os.environ.get("SQL_TUTOR_ALLOW_EXTERNAL_WEB"):
+        raise ValueError(
+            "Refusing to bind the web UI to a non-loopback host. "
+            "Set SQL_TUTOR_ALLOW_EXTERNAL_WEB=1 to opt in explicitly."
+        )
     app = TutorWebApp(settings)
 
     class Handler(BaseHTTPRequestHandler):
@@ -537,6 +582,8 @@ def serve(settings: Settings, host="127.0.0.1", port=8765, open_browser=False):
                         payload.get("difficulty"),
                         payload.get("question_type"),
                     )
+                elif path == "/api/model":
+                    result = app.choose_model(str(payload.get("model", "")))
                 elif path == "/api/hint":
                     result = app.hint()
                 elif path == "/api/next":

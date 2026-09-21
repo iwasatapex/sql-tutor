@@ -31,12 +31,16 @@ class SQLEngine:
         *,
         query_timeout_seconds: float = 2.0,
         max_rows: int = 10_000,
+        max_value_bytes: int = 1_000_000,
+        max_result_bytes: int = 10_000_000,
     ) -> None:
         fd, path = tempfile.mkstemp(prefix="sql-tutor-", suffix=".sqlite3")
         os.close(fd)
         self._db_path = Path(path)
         self._query_timeout_seconds = query_timeout_seconds
         self._max_rows = max_rows
+        self._max_value_bytes = max_value_bytes
+        self._max_result_bytes = max_result_bytes
         self._lifecycle_lock = Lock()
         self._closed = False
 
@@ -78,6 +82,16 @@ class SQLEngine:
         finally:
             connection.close()
 
+    @staticmethod
+    def _value_size(value: object) -> int:
+        if value is None:
+            return 0
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            return len(bytes(value))
+        if isinstance(value, str):
+            return len(value.encode("utf-8"))
+        return len(str(value).encode("utf-8"))
+
     def execute_query(self, query: str) -> QueryResult:
         validate_read_only_query(query)
         connection = self._connect()
@@ -105,9 +119,30 @@ class SQLEngine:
                     f"Query returned more than {self._max_rows} rows"
                 )
 
+            normalized_rows: list[tuple[object, ...]] = []
+            total_size = 0
+            for row in fetched:
+                converted = tuple(row)
+                row_size = 0
+                for value in converted:
+                    value_size = self._value_size(value)
+                    if value_size > self._max_value_bytes:
+                        raise ValueError(
+                            "Query result contains a value larger than "
+                            f"{self._max_value_bytes} bytes"
+                        )
+                    row_size += value_size
+                total_size += row_size
+                if total_size > self._max_result_bytes:
+                    raise ValueError(
+                        "Query result exceeds the configured size limit of "
+                        f"{self._max_result_bytes} bytes"
+                    )
+                normalized_rows.append(converted)
+
             return QueryResult(
                 columns=columns,
-                rows=tuple(tuple(row) for row in fetched),
+                rows=tuple(normalized_rows),
             )
         finally:
             connection.close()

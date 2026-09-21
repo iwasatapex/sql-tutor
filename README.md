@@ -24,7 +24,12 @@ provider fails. Progress is stored in
 
 ## Browser UI
 
-Start the local browser interface with `sql-tutor web --open`. It provides the current exercise, schema, SQL editor, submission feedback, hints, skip/next controls, and topic progress. The UI uses the same session, safety checks, progress database, and optional LLM hint provider as the CLI.
+Start the local browser interface with `sql-tutor web --open`. The web command
+uses local Ollama and shows installed models in the Settings panel; choose a
+model there before generating questions. It provides the current exercise,
+schema, SQL editor, submission feedback, hints, skip/next controls, and topic
+progress. The UI uses the same session, safety checks, and progress database as
+the CLI. The web server remains loopback-only unless explicitly opted out.
 
 ## How exercises are chosen
 
