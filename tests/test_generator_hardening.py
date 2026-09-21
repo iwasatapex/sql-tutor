@@ -136,7 +136,15 @@ def test_setup_sql_is_restricted_to_create_and_insert(statement: str) -> None:
 
 
 def test_setup_sql_must_be_a_list_of_strings() -> None:
-    bad = payload(setup_sql="CREATE TABLE x (a INTEGER)")
+    bad = payload(setup_sql={"statement": "CREATE TABLE x (a INTEGER)"})
 
     with pytest.raises(ExerciseGenerationError):
         generate(ScriptedProvider(json.dumps(bad)))
+
+
+def test_single_setup_sql_string_is_accepted() -> None:
+    ok = payload(setup_sql="CREATE TABLE x (a INTEGER)")
+
+    exercise = generate(ScriptedProvider(json.dumps(ok)))
+
+    assert exercise.setup_sql == ("CREATE TABLE x (a INTEGER)",)

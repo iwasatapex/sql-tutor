@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 
 from sql_tutor.exercises.models import Exercise
+from sql_tutor.exercises.sqlite_compat import sqlite_compatibility_errors
 from sql_tutor.sql.safety import UnsafeQueryError, validate_read_only_query
 
 
@@ -54,17 +55,31 @@ def validate_exercise(exercise: Exercise) -> ExerciseValidationResult:
             if not column.data_type.strip():
                 errors.append(f"Column type cannot be empty: {column.name}")
 
-    for statement in exercise.setup_sql:
+    for index, statement in enumerate(exercise.setup_sql, start=1):
+        total = len(exercise.setup_sql)
         if not _SETUP_STATEMENT_PATTERN.match(statement):
             errors.append(
-                "Setup statements must be CREATE TABLE or INSERT INTO: "
-                + statement.strip()[:60]
+                "Setup statements must be CREATE TABLE or INSERT INTO "
+                f"(statement {index} of {total}): {statement.strip()}"
+            )
+            continue
+        for compat_error in sqlite_compatibility_errors(statement):
+            errors.append(
+                f"Setup statement {index} of {total} uses non-SQLite SQL: "
+                f"{compat_error} in: {statement.strip()}"
             )
 
     try:
         validate_read_only_query(exercise.expected_query)
     except UnsafeQueryError as error:
         errors.append(f"Invalid expected query: {error}")
+    else:
+        for compat_error in sqlite_compatibility_errors(
+            exercise.expected_query
+        ):
+            errors.append(
+                f"Expected query uses non-SQLite SQL: {compat_error}"
+            )
 
     return ExerciseValidationResult(
         is_valid=not errors,

@@ -8,6 +8,10 @@ from sql_tutor.exercises.models import (
     TableColumn,
     TableSchema,
 )
+from sql_tutor.exercises.sqlite_compat import (
+    normalize_difficulty_label,
+    normalize_setup_statements,
+)
 from sql_tutor.exercises.validator import validate_exercise
 from sql_tutor.exercises.verifier import verify_exercise
 from sql_tutor.llm.base import LLMProvider, LLMProviderError
@@ -18,6 +22,11 @@ logger = logging.getLogger(__name__)
 _SYSTEM_PROMPT = (
     "You are a rigorous SQL curriculum author for a SQLite-based tutor. "
     "Generate only the requested SQL concept, not a generic exercise. "
+    "SQLite is the ONLY supported dialect: never use functions from MySQL, "
+    "PostgreSQL, T-SQL, or Oracle (no ROW_COUNT(), NOW(), DATE_FORMAT(), "
+    "NVL(), ROWNUM, DUAL, ...). Prefer portable SQL plus SQLite-supported "
+    "features such as strftime(), window functions with OVER/PARTITION BY, "
+    "and recursive CTEs. "
     "Keep the schema, description, setup_sql, and expected_query consistent. "
     "Reply with a single JSON object and nothing else."
 )
@@ -34,15 +43,24 @@ Use exactly this JSON shape:
   "setup_sql": ["CREATE TABLE ...", "INSERT INTO ... VALUES (...)"],
   "expected_query": "SELECT ...;"
 }
-Rules: SQLite dialect; setup_sql contains only CREATE TABLE and INSERT INTO, one statement per string;
-include 5 to 12 rows of realistic data; expected_query is one read-only SELECT that returns at least one row;
+Rules: SQLite dialect ONLY (no ROW_COUNT(), NOW(), DATE_FORMAT(), or other
+non-SQLite functions); setup_sql contains only CREATE TABLE and INSERT INTO,
+one complete statement per string -- never split row tuples such as
+"(1, 'Alice', 88.5)," into their own strings; a multi-row insert must be a
+single string like "INSERT INTO students VALUES (1, 'Alice', 88.5),
+(2, 'Bob', 95.0)"; include 5 to 12 rows of realistic data; expected_query is
+one read-only SELECT that returns at least one row;
 the expected_query must reference only tables and columns created by setup_sql;
 the description must use the actual schema column names;
-for window-function concepts, use SQLite-supported OVER, PARTITION BY, ORDER BY, and frame syntax;
-for DDL/DML concepts, still provide a read-only learner task and a SELECT-based expected_query;
-difficulty must be exactly one of: beginner, intermediate, advanced (lowercase)."""
+for window-function concepts, use SQLite-supported OVER, PARTITION BY,
+ORDER BY, ROW_NUMBER/RANK/DENSE_RANK/LAG/LEAD, and ROWS/RANGE frame syntax;
+for DDL/DML concepts, still provide a read-only learner task and a
+SELECT-based expected_query;
+difficulty must be exactly one of: beginner, intermediate, advanced
+(lowercase)."""
 
 _FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
+_MAX_RESPONSE_CHARS = 100_000
 
 
 class ExerciseGenerationError(ValueError):
@@ -139,7 +157,32 @@ class ExerciseGenerator:
     def _strip_fences(content: str) -> str:
         text = content.strip()
         match = _FENCE.match(text)
-        return match.group(1) if match else text
+        if match:
+            return match.group(1)
+        start = text.find("{")
+        if start < 0:
+            return text
+        candidate = text[start : start + _MAX_RESPONSE_CHARS]
+        depth = 0
+        in_string = False
+        escaped = False
+        for index, char in enumerate(candidate):
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    in_string = False
+            elif char == '"':
+                in_string = True
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return candidate[: index + 1]
+        return text
 
     @staticmethod
     def _parse_exercise(payload: dict) -> Exercise:
@@ -157,19 +200,25 @@ class ExerciseGenerator:
             for table in payload["schema"]
         )
 
-        setup_sql = payload.get("setup_sql", ())
+        setup_sql = normalize_setup_statements(payload.get("setup_sql", ()))
 
-        if not isinstance(setup_sql, (list, tuple)) or not all(
-            isinstance(s, str) for s in setup_sql
-        ):
+        if setup_sql is None:
             raise ValueError("setup_sql must be a list of strings")
+
+        normalized_difficulty = normalize_difficulty_label(
+            payload.get("difficulty")
+        )
+        if normalized_difficulty is None:
+            raise ValueError(
+                "difficulty must be one of: beginner, intermediate, advanced"
+            )
 
         return Exercise(
             exercise_id=payload["exercise_id"],
             title=payload["title"],
             description=payload["description"],
             concept=payload["concept"],
-            difficulty=ExerciseDifficulty(str(payload["difficulty"]).strip().lower()),
+            difficulty=ExerciseDifficulty(normalized_difficulty),
             schema=schema,
             expected_query=payload["expected_query"],
             setup_sql=tuple(setup_sql),

@@ -150,6 +150,7 @@ class ExerciseSelector:
         *,
         exclude_ids: Collection[str] = (),
         concept: str | None = None,
+        difficulty: ExerciseDifficulty | None = None,
     ) -> Exercise | None:
         solved_ids = {a.exercise_id for a in attempts if a.is_correct}
         unavailable = solved_ids | set(exclude_ids)
@@ -160,15 +161,28 @@ class ExerciseSelector:
             if progress.is_complete:
                 continue
 
+            candidates = self.repository.for_concept(progress.topic.title)
+
             candidates = [
-                e for e in self.repository.for_concept(progress.topic.title)
+                e for e in candidates
                 if e.exercise_id not in unavailable
             ]
 
             if not candidates:
                 continue
 
-            target = self._target_difficulty(progress.topic, attempts)
+            if difficulty is not None:
+                matching = [
+                    e for e in candidates if e.difficulty == difficulty
+                ]
+                if matching:
+                    candidates = matching
+
+            target = (
+                difficulty
+                if difficulty is not None
+                else self._target_difficulty(progress.topic, attempts)
+            )
 
             return min(
                 candidates,

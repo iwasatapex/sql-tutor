@@ -119,6 +119,27 @@ def test_returns_none_when_everything_is_done(
     assert selector.select_next(attempts) is None
 
 
+def test_explicit_difficulty_prefers_matching_exercises(
+    selector: ExerciseSelector,
+) -> None:
+    exercise = selector.select_next([], difficulty=I)
+
+    assert exercise is not None
+    assert exercise.difficulty == I
+    assert exercise.exercise_id == "s3"
+
+
+def test_explicit_difficulty_falls_back_to_nearest_level(
+    selector: ExerciseSelector,
+) -> None:
+    exercise = selector.select_next([], concept="WHERE", difficulty=A)
+
+    assert exercise is not None
+    assert exercise.concept == "WHERE"
+    assert exercise.difficulty == B
+
+
+
 def test_unknown_exercise_ids_in_history_are_ignored(
     selector: ExerciseSelector,
 ) -> None:

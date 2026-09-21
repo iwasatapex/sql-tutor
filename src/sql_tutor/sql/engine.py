@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 import tempfile
 import time
@@ -7,7 +8,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from sql_tutor.sql.safety import validate_read_only_query
+from sql_tutor.sql.safety import UnsafeQueryError, validate_read_only_query
 
 
 @dataclass(frozen=True)
@@ -49,10 +50,30 @@ class SQLEngine:
 
     def execute_setup(self, statements: list[str]) -> None:
         connection = self._connect()
+        total = len(statements)
         try:
             connection.execute("PRAGMA query_only = OFF")
-            for statement in statements:
-                connection.execute(statement)
+            for index, statement in enumerate(statements, start=1):
+                stripped = statement.strip()
+                if not stripped:
+                    continue
+                head = re.match(
+                    r"(CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?|INSERT\s+INTO)\b",
+                    stripped,
+                    re.IGNORECASE,
+                )
+                if head is None:
+                    raise UnsafeQueryError(
+                        "Setup statements must be CREATE TABLE or INSERT INTO "
+                        f"(statement {index} of {total}): {stripped}"
+                    )
+                try:
+                    connection.execute(statement)
+                except sqlite3.Error as error:
+                    raise sqlite3.OperationalError(
+                        f"Failed to execute setup_sql statement {index} "
+                        f"of {total}: {stripped}: {error}"
+                    ) from error
             connection.commit()
         finally:
             connection.close()

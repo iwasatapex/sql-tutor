@@ -12,6 +12,9 @@ from sql_tutor.storage.progress import ProgressStore
 from sql_tutor.tutor.hints import Hint
 from sql_tutor.tutor.orchestrator import TutorFeedback, TutorOrchestrator
 from sql_tutor.exercises.generator import ExerciseGenerator, ExerciseGenerationError
+from sql_tutor.exercises.models import ExerciseDifficulty
+from sql_tutor.exercises.sqlite_compat import normalize_difficulty_label
+from sql_tutor.sql.safety import UnsafeQueryError
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +149,8 @@ class LearningSession:
         self._attempts = 0
         self._last_feedback: TutorFeedback | None = None
         self.selected_concept: str | None = None
+        self.selected_difficulty: ExerciseDifficulty | None = None
+        self.selected_question_type: str = "write"
 
     @property
     def state(self) -> SessionState | None:
@@ -193,6 +198,33 @@ class LearningSession:
             raise ValueError(f"Unknown curriculum topic: {concept}")
         self.selected_concept = topic.title
 
+    def set_difficulty(self, difficulty: ExerciseDifficulty | str | None) -> None:
+        """Pin practice to one difficulty, or None for adaptive difficulty."""
+        if difficulty is None:
+            self.selected_difficulty = None
+            return
+        if isinstance(difficulty, ExerciseDifficulty):
+            self.selected_difficulty = difficulty
+            return
+        normalized = normalize_difficulty_label(difficulty)
+        if normalized is None:
+            raise ValueError(
+                f"Unknown difficulty: {difficulty!r}. "
+                "Use beginner, intermediate, advanced, or adaptive."
+            )
+        self.selected_difficulty = ExerciseDifficulty(normalized)
+
+    def set_question_type(self, question_type: str | None) -> None:
+        """Set how the learner practices; only writing SQL is supported."""
+        normalized = (question_type or "write").strip().lower()
+        if normalized in {"write", "write sql", "write_sql"}:
+            self.selected_question_type = "write"
+            return
+        raise ValueError(
+            f"Unsupported question type: {question_type!r}. "
+            "Only 'write' (Write SQL) is currently supported."
+        )
+
     def next_exercise(self) -> Exercise | None:
         self._close_engine()
         self.current = None
@@ -202,11 +234,16 @@ class LearningSession:
 
         if self.generator is not None:
             if self.selected_concept is not None:
-                concept, difficulty = self.selector.generation_target_for_concept(
-                    self.selected_concept, attempts
+                concept, adaptive_difficulty = (
+                    self.selector.generation_target_for_concept(
+                        self.selected_concept, attempts
+                    )
                 )
             else:
-                concept, difficulty = self.selector.generation_target(attempts)
+                concept, adaptive_difficulty = self.selector.generation_target(
+                    attempts
+                )
+            difficulty = self.selected_difficulty or adaptive_difficulty
             try:
                 exercise = self.generator.generate(concept, difficulty)
                 if self.repository.get(exercise.exercise_id) is None:
@@ -219,6 +256,7 @@ class LearningSession:
                 attempts,
                 exclude_ids=self._skipped,
                 concept=self.selected_concept,
+                difficulty=self.selected_difficulty,
             )
 
         self.failed_attempts = 0
@@ -320,6 +358,12 @@ class LearningSession:
             try:
                 engine.execute_setup(list(exercise.setup_sql))
             except sqlite3.Error as error:
+                engine.close()
+                raise ExerciseSetupError(
+                    f"Could not build database for exercise "
+                    f"'{exercise.exercise_id}': {error}"
+                ) from error
+            except (UnsafeQueryError, ValueError) as error:
                 engine.close()
                 raise ExerciseSetupError(
                     f"Could not build database for exercise "

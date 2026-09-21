@@ -29,7 +29,13 @@ def verify_exercise(exercise: Exercise) -> ExerciseValidationResult:
     engine = SQLEngine()
 
     try:
-        engine.execute_setup(list(exercise.setup_sql))
+        try:
+            engine.execute_setup(list(exercise.setup_sql))
+        except (sqlite3.Error, UnsafeQueryError, ValueError) as error:
+            errors.append(
+                f"Exercise '{exercise.exercise_id}' setup failed: {error}"
+            )
+            return ExerciseValidationResult(False, tuple(errors))
 
         for table in exercise.schema:
             try:
@@ -40,12 +46,17 @@ def verify_exercise(exercise: Exercise) -> ExerciseValidationResult:
                 )
 
         if not errors:
-            result = engine.execute_query(exercise.expected_query)
+            try:
+                result = engine.execute_query(exercise.expected_query)
+            except (sqlite3.Error, UnsafeQueryError, ValueError) as error:
+                errors.append(
+                    f"Exercise '{exercise.exercise_id}' expected query failed: "
+                    f"{exercise.expected_query.strip()}: {error}"
+                )
+                return ExerciseValidationResult(False, tuple(errors))
 
             if not result.rows:
                 errors.append("Expected query returns no rows")
-    except (sqlite3.Error, UnsafeQueryError, ValueError) as error:
-        errors.append(f"Exercise could not be built or run: {error}")
     finally:
         engine.close()
 
