@@ -7,9 +7,7 @@
     "difficulty": "beginner",
     "dataset": "company",
     "expected_query": "SELECT name FROM employees ORDER BY name;",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   },
   {
     "exercise_id": "orderby-02",
@@ -19,9 +17,7 @@
     "difficulty": "beginner",
     "dataset": "company",
     "expected_query": "SELECT name, salary FROM employees ORDER BY salary DESC;",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   },
   {
     "exercise_id": "orderby-03",
@@ -31,9 +27,7 @@
     "difficulty": "intermediate",
     "dataset": "shop",
     "expected_query": "SELECT name, category, price FROM products ORDER BY category ASC, price DESC;",
-    "tables": [
-      "products"
-    ]
+    "tables": ["products"]
   },
   {
     "exercise_id": "orderby-04",
@@ -43,8 +37,6 @@
     "difficulty": "intermediate",
     "dataset": "company",
     "expected_query": "SELECT name, salary FROM employees ORDER BY salary DESC LIMIT 3;",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   }
 ]

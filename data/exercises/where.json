@@ -7,9 +7,7 @@
     "difficulty": "beginner",
     "dataset": "company",
     "expected_query": "SELECT name, salary FROM employees WHERE salary > 70000;",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   },
   {
     "exercise_id": "where-02",
@@ -19,9 +17,7 @@
     "difficulty": "beginner",
     "dataset": "shop",
     "expected_query": "SELECT name FROM customers WHERE country = 'UK';",
-    "tables": [
-      "customers"
-    ]
+    "tables": ["customers"]
   },
   {
     "exercise_id": "where-03",
@@ -31,9 +27,7 @@
     "difficulty": "intermediate",
     "dataset": "company",
     "expected_query": "SELECT name FROM employees WHERE hire_year >= 2018 AND department_id = 2;",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   },
   {
     "exercise_id": "where-04",
@@ -43,8 +37,6 @@
     "difficulty": "advanced",
     "dataset": "company",
     "expected_query": "SELECT name FROM employees WHERE manager_id IS NULL AND salary BETWEEN 60000 AND 100000;",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   }
 ]

@@ -7,9 +7,7 @@
     "difficulty": "beginner",
     "dataset": "company",
     "expected_query": "SELECT name FROM employees;",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   },
   {
     "exercise_id": "select-02",
@@ -19,9 +17,7 @@
     "difficulty": "beginner",
     "dataset": "company",
     "expected_query": "SELECT name, salary FROM employees;",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   },
   {
     "exercise_id": "select-03",
@@ -31,9 +27,7 @@
     "difficulty": "intermediate",
     "dataset": "company",
     "expected_query": "SELECT DISTINCT location FROM departments;",
-    "tables": [
-      "departments"
-    ]
+    "tables": ["departments"]
   },
   {
     "exercise_id": "select-04",
@@ -43,8 +37,6 @@
     "difficulty": "intermediate",
     "dataset": "company",
     "expected_query": "SELECT name, salary + 5000 AS raised_salary FROM employees;",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   }
 ]

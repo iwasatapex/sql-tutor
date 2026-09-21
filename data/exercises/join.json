@@ -7,10 +7,7 @@
     "difficulty": "beginner",
     "dataset": "company",
     "expected_query": "SELECT e.name AS employee_name, d.name AS department_name FROM employees e JOIN departments d ON e.department_id = d.id;",
-    "tables": [
-      "employees",
-      "departments"
-    ]
+    "tables": ["employees", "departments"]
   },
   {
     "exercise_id": "join-02",
@@ -20,10 +17,7 @@
     "difficulty": "intermediate",
     "dataset": "shop",
     "expected_query": "SELECT o.id AS order_id, c.name AS customer_name FROM orders o JOIN customers c ON o.customer_id = c.id;",
-    "tables": [
-      "orders",
-      "customers"
-    ]
+    "tables": ["orders", "customers"]
   },
   {
     "exercise_id": "join-03",
@@ -33,10 +27,7 @@
     "difficulty": "intermediate",
     "dataset": "company",
     "expected_query": "SELECT d.name AS department_name, COUNT(e.id) AS employee_count FROM departments d LEFT JOIN employees e ON e.department_id = d.id GROUP BY d.id, d.name;",
-    "tables": [
-      "departments",
-      "employees"
-    ]
+    "tables": ["departments", "employees"]
   },
   {
     "exercise_id": "join-04",
@@ -46,11 +37,6 @@
     "difficulty": "advanced",
     "dataset": "shop",
     "expected_query": "SELECT c.name AS customer_name, SUM(oi.quantity * p.price) AS total_spent FROM customers c JOIN orders o ON o.customer_id = c.id JOIN order_items oi ON oi.order_id = o.id JOIN products p ON p.id = oi.product_id WHERE o.status <> 'cancelled' GROUP BY c.id, c.name ORDER BY total_spent DESC;",
-    "tables": [
-      "customers",
-      "orders",
-      "order_items",
-      "products"
-    ]
+    "tables": ["customers", "orders", "order_items", "products"]
   }
 ]

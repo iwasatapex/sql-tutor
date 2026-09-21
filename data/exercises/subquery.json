@@ -7,9 +7,7 @@
     "difficulty": "intermediate",
     "dataset": "company",
     "expected_query": "SELECT name, salary FROM employees WHERE salary > (SELECT AVG(salary) FROM employees);",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   },
   {
     "exercise_id": "subquery-02",
@@ -19,9 +17,7 @@
     "difficulty": "intermediate",
     "dataset": "shop",
     "expected_query": "SELECT name, price FROM products WHERE price > (SELECT AVG(price) FROM products);",
-    "tables": [
-      "products"
-    ]
+    "tables": ["products"]
   },
   {
     "exercise_id": "subquery-03",
@@ -31,10 +27,7 @@
     "difficulty": "advanced",
     "dataset": "shop",
     "expected_query": "SELECT name FROM customers WHERE id NOT IN (SELECT customer_id FROM orders);",
-    "tables": [
-      "customers",
-      "orders"
-    ]
+    "tables": ["customers", "orders"]
   },
   {
     "exercise_id": "subquery-04",
@@ -44,8 +37,6 @@
     "difficulty": "advanced",
     "dataset": "company",
     "expected_query": "SELECT name, department_id, salary FROM employees e WHERE salary = (SELECT MAX(salary) FROM employees WHERE department_id = e.department_id);",
-    "tables": [
-      "employees"
-    ]
+    "tables": ["employees"]
   }
 ]

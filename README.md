@@ -62,13 +62,13 @@ required aliases.
 
 Configured by environment variables:
 
-| Variable | Meaning |
-| --- | --- |
-| `SQL_TUTOR_LLM_PROVIDER` | `mock` (default), `ollama`, `openai-compatible` |
-| `SQL_TUTOR_LLM_MODEL` | model name (required for real providers) |
+| Variable                 | Meaning                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------ |
+| `SQL_TUTOR_LLM_PROVIDER` | `mock` (default), `ollama`, `openai-compatible`                                            |
+| `SQL_TUTOR_LLM_MODEL`    | model name (required for real providers)                                                   |
 | `SQL_TUTOR_LLM_BASE_URL` | default `http://localhost:11434` for Ollama; required for openai-compatible, include `/v1` |
-| `SQL_TUTOR_LLM_API_KEY` | bearer token, if the server needs one |
-| `SQL_TUTOR_LLM_TIMEOUT` | seconds, default 120 |
+| `SQL_TUTOR_LLM_API_KEY`  | bearer token, if the server needs one                                                      |
+| `SQL_TUTOR_LLM_TIMEOUT`  | seconds, default 120                                                                       |
 
 ```bash
 SQL_TUTOR_LLM_PROVIDER=ollama SQL_TUTOR_LLM_MODEL=<your-model> \
