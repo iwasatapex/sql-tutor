@@ -9,8 +9,7 @@ from sql_tutor.exercises.repository import ExerciseRepository
 from sql_tutor.learning.curriculum import Curriculum
 from sql_tutor.learning.selector import ExerciseSelector
 from sql_tutor.storage.progress import ProgressStore
-from sql_tutor.tutor.session import LearningSession
-from sql_tutor.tutor.session import QuestionTypeMismatchError
+from sql_tutor.tutor.session import LearningSession, QuestionTypeMismatchError
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 

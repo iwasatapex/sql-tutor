@@ -1,7 +1,12 @@
-from sql_tutor.exercises.models import Exercise, ExerciseDifficulty, TableColumn, TableSchema
+from sql_tutor.exercises.models import (
+    Exercise,
+    ExerciseDifficulty,
+    TableColumn,
+    TableSchema,
+)
+from sql_tutor.learning.mastery import MasteryLevel
 from sql_tutor.sql.engine import SQLEngine
 from sql_tutor.storage.progress import ProgressStore
-from sql_tutor.learning.mastery import MasteryLevel
 from sql_tutor.tutor.orchestrator import TutorOrchestrator
 
 

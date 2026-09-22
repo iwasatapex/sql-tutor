@@ -10,7 +10,6 @@ from sql_tutor.exercises.repository import ExerciseRepository
 from sql_tutor.tutor.session import QuestionTypeMismatchError
 from sql_tutor.web import TutorWebApp, _exercise_payload
 
-
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 
@@ -41,7 +40,7 @@ def test_predict_department_names_uses_company_data_and_type_routing(
 ) -> None:
     app = TutorWebApp(Settings(data_dir=DATA_DIR, database_path=tmp_path / "p.db"))
     try:
-        state = app.choose_question_type("predict")
+        app.choose_question_type("predict")
         exercise = app.session.current
         assert exercise is not None
         assert exercise.exercise_id == "predict-department-names"

@@ -13,11 +13,30 @@ dependencies = []
 sql-tutor = "sql_tutor.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11",
+    "pytest-cov>=5.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E4", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/sql_tutor/web.py" = ["E402"]
+"tests/test_progress.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/sql_tutor"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

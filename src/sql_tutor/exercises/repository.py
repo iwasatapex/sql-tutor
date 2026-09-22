@@ -3,6 +3,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from sql_tutor.exercises import sqlite_compat
 from sql_tutor.exercises.models import (
     Exercise,
     ExerciseDifficulty,
@@ -10,7 +11,6 @@ from sql_tutor.exercises.models import (
     TableColumn,
     TableSchema,
 )
-from sql_tutor.exercises import sqlite_compat
 
 
 class ExerciseLoadError(ValueError):

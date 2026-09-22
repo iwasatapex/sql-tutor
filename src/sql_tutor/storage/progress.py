@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 from sql_tutor.learning.mastery import MasteryResult, MasteryTracker
 
@@ -96,7 +96,7 @@ class ProgressStore:
         hint_level: int | None = None,
     ) -> Attempt:
         self._ensure_open()
-        created_at = datetime.now(timezone.utc).isoformat()
+        created_at = datetime.now(UTC).isoformat()
         with self._lock:
             for connection in self._connections():
                 connection.execute(

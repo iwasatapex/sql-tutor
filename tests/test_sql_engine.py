@@ -1,7 +1,10 @@
 import pytest
 
 from sql_tutor.sql.engine import SQLEngine
-from sql_tutor.sql.safety import UnsafeQueryError
+from sql_tutor.sql.safety import (
+    UnsafeQueryError,
+    validate_read_only_query,
+)
 
 
 @pytest.fixture
@@ -76,3 +79,14 @@ def test_query_can_run_from_another_thread(engine: SQLEngine) -> None:
 
     assert result.columns == ("id", "name")
     assert result.rows == ((1, "Alice"), (2, "Bob"), (3, "Charlie"))
+
+
+def test_unterminated_quoted_segments_are_rejected() -> None:
+    for query in (
+        "SELECT 'unterminated",
+        'SELECT "unterminated',
+        "SELECT `unterminated",
+        "SELECT [unterminated",
+    ):
+        with pytest.raises(UnsafeQueryError, match="unterminated"):
+            validate_read_only_query(query)

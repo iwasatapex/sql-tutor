@@ -1,3 +1,4 @@
+from sql_tutor.learning.mastery import MasteryLevel
 from sql_tutor.storage.progress import ProgressStore
 
 
@@ -36,8 +37,6 @@ def test_attempts_are_filtered_by_exercise() -> None:
 
     store.close()
 
-from sql_tutor.learning.mastery import MasteryLevel
-
 
 def test_get_mastery_for_exercise() -> None:
     store = ProgressStore()
@@ -64,6 +63,3 @@ def test_get_mastery_for_new_exercise() -> None:
     assert mastery.accuracy == 0.0
 
     store.close()
-
-
-from sql_tutor.learning.mastery import MasteryLevel

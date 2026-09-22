@@ -111,7 +111,7 @@ def grade_explanation(
     ``threshold`` of the reference terms.
     """
     terms = key_terms(reference)
-    written = set()
+    written: set[str] = set()
 
     for token in _tokens(learner):
         written |= _stems(token)

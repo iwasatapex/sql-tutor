@@ -1,4 +1,9 @@
-from sql_tutor.exercises.models import Exercise, ExerciseDifficulty, TableColumn, TableSchema
+from sql_tutor.exercises.models import (
+    Exercise,
+    ExerciseDifficulty,
+    TableColumn,
+    TableSchema,
+)
 from sql_tutor.llm.base import LLMProvider
 from sql_tutor.llm.models import LLMRequest, LLMResponse
 from sql_tutor.tutor.hints import HintService

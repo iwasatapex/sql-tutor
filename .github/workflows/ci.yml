@@ -19,5 +19,8 @@ jobs:
       - name: Validate
         run: |
           python -m compileall -q src
+          python -m ruff check .
+          python -m mypy
           python -m pytest -q
+          python -m pytest --cov=sql_tutor --cov-report=term-missing --cov-fail-under=80 -q
           git diff --check

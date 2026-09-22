@@ -5,13 +5,13 @@ import logging
 import os
 import threading
 import webbrowser
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from dataclasses import replace
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 from sql_tutor.config import Settings
-from sql_tutor.exercises.repository import ExerciseRepository
 from sql_tutor.exercises.generator import ExerciseGenerator
+from sql_tutor.exercises.repository import ExerciseRepository
 from sql_tutor.learning.curriculum import Curriculum
 from sql_tutor.learning.selector import ExerciseSelector
 from sql_tutor.llm.base import LLMProviderError
@@ -513,14 +513,16 @@ def serve(settings: Settings, host="127.0.0.1", port=8765, open_browser=False):
             except (TypeError, ValueError):
                 raise EmptySubmissionError(
                     "Request must include a valid Content-Length header"
-                )
+                ) from None
             if length < 0 or length > 1_000_000:
                 raise EmptySubmissionError("Request body has an invalid length")
             raw = self.rfile.read(length) if length else b"{}"
             try:
                 payload = json.loads(raw or b"{}")
             except (json.JSONDecodeError, UnicodeDecodeError) as error:
-                raise EmptySubmissionError(f"Request body must be JSON: {error}")
+                raise EmptySubmissionError(
+                    f"Request body must be JSON: {error}"
+                ) from error
             if not isinstance(payload, dict):
                 raise EmptySubmissionError("Request body must be a JSON object")
             return payload

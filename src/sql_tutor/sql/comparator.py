@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Any
 
 from sql_tutor.sql.engine import QueryResult
 

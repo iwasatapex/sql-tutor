@@ -168,7 +168,9 @@ class ExerciseSelector:
             if progress.is_complete:
                 continue
 
-            candidates = self.repository.for_concept(progress.topic.title)
+            candidates = list(
+                self.repository.for_concept(progress.topic.title)
+            )
 
             candidates = [
                 e for e in candidates

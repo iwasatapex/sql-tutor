@@ -4,20 +4,19 @@ import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
-from sql_tutor.exercises.models import Exercise
+from sql_tutor.exercises.generator import ExerciseGenerationError, ExerciseGenerator
+from sql_tutor.exercises.models import Exercise, ExerciseDifficulty
 from sql_tutor.exercises.repository import ExerciseRepository
+from sql_tutor.exercises.sqlite_compat import normalize_difficulty_label
 from sql_tutor.learning.curriculum import Curriculum
 from sql_tutor.learning.selector import ExerciseSelector, TopicProgress
 from sql_tutor.sql.engine import QueryResult, SQLEngine
+from sql_tutor.sql.safety import UnsafeQueryError
 from sql_tutor.storage.progress import ProgressStore
-from sql_tutor.tutor.hints import Hint
 from sql_tutor.tutor.explanation import ExplanationGrade, grade_explanation
+from sql_tutor.tutor.hints import Hint
 from sql_tutor.tutor.orchestrator import TutorFeedback, TutorOrchestrator
 from sql_tutor.tutor.prediction import format_query_result, prediction_matches
-from sql_tutor.exercises.generator import ExerciseGenerator, ExerciseGenerationError
-from sql_tutor.exercises.models import ExerciseDifficulty
-from sql_tutor.exercises.sqlite_compat import normalize_difficulty_label
-from sql_tutor.sql.safety import UnsafeQueryError
 
 logger = logging.getLogger(__name__)
 

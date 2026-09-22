@@ -72,7 +72,9 @@ def format_table(
     ]
 
     def line(cells: Sequence[str]) -> str:
-        return " | ".join(c.ljust(w) for c, w in zip(cells, widths))
+        return " | ".join(
+            c.ljust(w) for c, w in zip(cells, widths, strict=True)
+        )
 
     out = [line([str(c) for c in columns]), "-+-".join("-" * w for w in widths)]
     out.extend(line(r) for r in shown)

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from sql_tutor.config import Settings
-from sql_tutor.web import TutorWebApp, _exercise_payload
+from sql_tutor.web import TutorWebApp
 
 
 def test_exercise_payload_contains_schema(tmp_path: Path) -> None:

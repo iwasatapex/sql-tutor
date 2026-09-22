@@ -3,13 +3,13 @@ from dataclasses import dataclass
 
 from sql_tutor.exercises.models import Exercise
 from sql_tutor.learning.mastery import MasteryResult
+from sql_tutor.llm.base import LLMProvider
 from sql_tutor.sql.engine import SQLEngine
 from sql_tutor.sql.evaluator import ExerciseEvaluator
 from sql_tutor.sql.safety import UnsafeQueryError
 from sql_tutor.storage.progress import ProgressStore
 from sql_tutor.tutor.hints import Hint, HintService
 from sql_tutor.tutor.llm_hints import LLMHintService
-from sql_tutor.llm.base import LLMProvider
 
 
 @dataclass(frozen=True)
